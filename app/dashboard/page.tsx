@@ -1,17 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import DashboardClient from "./dashboard-client";
-
-/**
- * ✅ 明确定义 Service 类型
- * 必须和 Supabase services 表字段一致
- */
-type Service = {
-  id: string;
-  title: string;
-  webhook_url: string;
-  created_at: string;
-};
+import type { Service } from "@/types/supabase";
 
 export default async function DashboardPage() {
   // 👇 必须 await
@@ -27,18 +17,19 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  // ✅ 明确声明返回类型
+  // 查询所有服务
   const { data: services } = await supabase
     .from("services")
     .select("*")
-    .order("created_at", { ascending: false }) as {
-      data: Service[] | null;
-    };
+    .order("created_at", { ascending: false });
 
-  // 调试日志（现在 TS 完全安全）
+  // 类型断言：确保 services 是正确的类型
+  const typedServices: Service[] = (services ?? []) as Service[];
+
+  // 调试日志
   console.log(
     "📦 从数据库获取的服务:",
-    services?.map((s) => ({
+    typedServices.map((s) => ({
       title: s.title,
       webhook_url: s.webhook_url,
     }))
@@ -46,7 +37,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient
-      services={services ?? []}
+      services={typedServices}
       user={session.user}
     />
   );

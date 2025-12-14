@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
-import type { Service } from "@/types/supabase";
+import type { Service, Database } from "@/types/supabase";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+
+type TaskInsert = Database["public"]["Tables"]["tasks"]["Insert"];
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,15 +72,17 @@ export default function DashboardClient({ services, user }: Props) {
         filePath = data?.path ?? path;
       }
 
-      const { data: task, error: insertError } = await supabase
+      const taskData = {
+        user_id: user.id,
+        service_id: selected.id,
+        input_text: inputText || null,
+        file_url: filePath,
+        status: "pending",
+      };
+
+      const { data: task, error: insertError } = await (supabase
         .from("tasks")
-        .insert({
-          user_id: user.id,
-          service_id: selected.id,
-          input_text: inputText || null,
-          file_url: filePath,
-          status: "pending",
-        })
+        .insert(taskData as any) as any)
         .select()
         .single();
 

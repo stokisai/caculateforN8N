@@ -3,20 +3,7 @@
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { LogOut, Upload, FileText, CheckCircle, Loader2, Copy } from "lucide-react";
-
-/**
- * ===== 类型定义（关键）=====
- */
-
-// services 表
-type Service = {
-  id: string;
-  title: string;
-  description: string | null;
-  image_url: string | null;
-  webhook_url: string;
-  input_type: "file" | "text" | "both";
-};
+import type { Service } from "@/types/supabase";
 
 // tasks 表 insert 用
 type TaskInsert = {
@@ -31,7 +18,7 @@ type DashboardClientProps = {
   services: Service[];
   user: {
     id: string;
-    email: string;
+    email?: string | null;
   };
 };
 
@@ -167,7 +154,7 @@ export default function DashboardClient({ services, user }: DashboardClientProps
       <div className="max-w-6xl mx-auto flex justify-between items-center mb-12">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">控制台</h1>
-          <p className="text-slate-500">欢迎回来, {user.email}</p>
+          <p className="text-slate-500">欢迎回来, {user.email || "用户"}</p>
         </div>
         <button
           onClick={handleSignOut}
