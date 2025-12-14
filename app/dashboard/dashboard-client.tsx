@@ -78,6 +78,7 @@ export default function DashboardClient({ services, user }: DashboardClientProps
 
     try {
       let filePath: string | null = null;
+      let fileUrl: string | null = null;
 
       // 如果有文件，先上传到 Supabase Storage
       if (file) {
@@ -90,6 +91,14 @@ export default function DashboardClient({ services, user }: DashboardClientProps
           throw uploadError;
         }
         filePath = uploadData?.path ?? path;
+
+        // ✅ 生成公共 URL（因为 bucket 是 public）
+        const { data: urlData } = supabase.storage
+          .from("task-files")
+          .getPublicUrl(filePath);
+        
+        fileUrl = urlData.publicUrl;
+        console.log("📁 文件上传成功，URL:", fileUrl);
       }
 
       // 创建任务记录
@@ -99,7 +108,7 @@ export default function DashboardClient({ services, user }: DashboardClientProps
           user_id: user.id,
           service_id: selectedService.id,
           input_text: inputText || null,
-          file_url: filePath,
+          file_url: filePath, // 存储路径用于内部引用
           status: "pending",
         })
         .select()
@@ -109,8 +118,16 @@ export default function DashboardClient({ services, user }: DashboardClientProps
         throw insertError ?? new Error("无法创建任务");
       }
 
-      // 调用 webhook
+      // 调用 webhook - 传递完整的 URL 而不是路径
       console.log("🔍 使用的 Webhook URL:", selectedService.webhook_url);
+      console.log("📤 发送给 n8n 的数据:", {
+        task_id: task.id,
+        service_id: selectedService.id,
+        user_id: user.id,
+        input_text: inputText,
+        file_url: fileUrl, // ✅ 使用完整的 URL
+      });
+
       const response = await fetch(selectedService.webhook_url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -119,7 +136,7 @@ export default function DashboardClient({ services, user }: DashboardClientProps
           service_id: selectedService.id,
           user_id: user.id,
           input_text: inputText,
-          file_url: filePath,
+          file_url: fileUrl, // ✅ 传递完整的 URL 给 n8n
         }),
       });
 

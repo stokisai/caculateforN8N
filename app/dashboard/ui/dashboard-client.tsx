@@ -59,6 +59,7 @@ export default function DashboardClient({ services, user }: Props) {
       }
 
       let filePath: string | null = null;
+      let fileUrl: string | null = null;
 
       if (file) {
         const path = `${user.id}/${selected.id}/${Date.now()}-${file.name}`;
@@ -70,13 +71,21 @@ export default function DashboardClient({ services, user }: Props) {
           throw uploadError;
         }
         filePath = data?.path ?? path;
+
+        // ✅ 生成公共 URL（因为 bucket 是 public）
+        const { data: urlData } = supabase.storage
+          .from("task-files")
+          .getPublicUrl(filePath);
+        
+        fileUrl = urlData.publicUrl;
+        console.log("📁 文件上传成功，URL:", fileUrl);
       }
 
       const taskData = {
         user_id: user.id,
         service_id: selected.id,
         input_text: inputText || null,
-        file_url: filePath,
+        file_url: filePath, // 存储路径用于内部引用
         status: "pending",
       };
 
@@ -90,6 +99,14 @@ export default function DashboardClient({ services, user }: Props) {
         throw insertError ?? new Error("Unable to create task.");
       }
 
+      console.log("📤 发送给 n8n 的数据:", {
+        task_id: task.id,
+        service_id: selected.id,
+        user_id: user.id,
+        input_text: inputText,
+        file_url: fileUrl, // ✅ 使用完整的 URL
+      });
+
       await fetch(selected.webhook_url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,7 +115,7 @@ export default function DashboardClient({ services, user }: Props) {
           service_id: selected.id,
           user_id: user.id,
           input_text: inputText,
-          file_url: filePath,
+          file_url: fileUrl, // ✅ 传递完整的 URL 给 n8n
         }),
       });
 
