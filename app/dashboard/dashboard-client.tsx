@@ -98,31 +98,28 @@ export default function DashboardClient({ services, user }: DashboardClientProps
           throw new Error("文件上传失败：无法获取文件路径");
         }
 
-        // ② 立刻生成 Public URL（关键步骤）
-        const { data: urlData } = supabase.storage
-          .from("task-files")
-          .getPublicUrl(uploadData.path); // ✅ 使用 uploadData.path
-        
-        fileUrl = urlData.publicUrl;
-        
-        // 🔴 验证 URL 格式：必须包含 /public/
-        if (!fileUrl || !fileUrl.startsWith("http")) {
-          throw new Error(`file_url is not a public URL: ${fileUrl}`);
+        // ② 手动构建 Public URL（不依赖 getPublicUrl，确保格式正确）
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        if (!supabaseUrl) {
+          throw new Error("NEXT_PUBLIC_SUPABASE_URL 未配置");
         }
         
-        // 🔴 额外验证：确保 URL 包含 /public/（这是公共 URL 的关键）
+        // 🔴 直接手动构建 URL，确保格式正确
+        fileUrl = `${supabaseUrl}/storage/v1/object/public/task-files/${uploadData.path}`;
+        
+        // 🔴 强制验证：必须是完整的 HTTP URL
+        if (!fileUrl.startsWith("http://") && !fileUrl.startsWith("https://")) {
+          throw new Error(`生成的 URL 格式错误: ${fileUrl}`);
+        }
+        
+        // 🔴 强制验证：必须包含 /public/
         if (!fileUrl.includes("/storage/v1/object/public/")) {
-          // 如果 getPublicUrl 没有生成正确的 URL，手动构建
-          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-          if (!supabaseUrl) {
-            throw new Error("NEXT_PUBLIC_SUPABASE_URL 未配置");
-          }
-          fileUrl = `${supabaseUrl}/storage/v1/object/public/task-files/${uploadData.path}`;
-          console.warn("⚠️ getPublicUrl 生成的 URL 不正确，手动构建:", fileUrl);
+          throw new Error(`URL 必须包含 /public/，但得到: ${fileUrl}`);
         }
         
         console.log("📁 文件上传成功:");
         console.log("  - 路径 (path):", filePath);
+        console.log("  - Supabase URL:", supabaseUrl);
         console.log("  - 完整 URL (fileUrl):", fileUrl);
         console.log("  - URL 包含 /public/:", fileUrl.includes("/public/") ? "✅" : "❌");
         console.log("  - URL 格式验证: ✅");
@@ -200,6 +197,14 @@ export default function DashboardClient({ services, user }: DashboardClientProps
       console.log("✅ 验证通过，准备发送到 n8n...");
       console.log("🔗 Webhook URL:", selectedService.webhook_url);
       console.log("📦 Payload body:", bodyString);
+      
+      // 🔴 调试：显示实际发送的 file_url（仅开发环境）
+      if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {
+        console.log("🔍 [调试] 实际发送的 file_url:", payload.file_url);
+        if (file && payload.file_url && !payload.file_url.startsWith("http")) {
+          alert(`❌ 错误：file_url 不是 URL！\n\n值: ${payload.file_url}\n\n这不应该发生！`);
+        }
+      }
 
       const response = await fetch(selectedService.webhook_url, {
         method: "POST",
