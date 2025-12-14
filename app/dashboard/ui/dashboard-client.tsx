@@ -62,23 +62,38 @@ export default function DashboardClient({ services, user }: Props) {
       let fileUrl: string | null = null;
 
       if (file) {
+        // ① 上传文件
         const path = `${user.id}/${selected.id}/${Date.now()}-${file.name}`;
-        const { data, error: uploadError } = await supabase.storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
           .from("task-files")
           .upload(path, file);
 
         if (uploadError) {
           throw uploadError;
         }
-        filePath = data?.path ?? path;
 
-        // ✅ 生成公共 URL（因为 bucket 是 public）
+        // ⚠️ 关键：必须使用 uploadData.path，不能自己拼
+        filePath = uploadData?.path;
+        if (!filePath) {
+          throw new Error("文件上传失败：无法获取文件路径");
+        }
+
+        // ② 立刻生成 Public URL（关键步骤）
         const { data: urlData } = supabase.storage
           .from("task-files")
-          .getPublicUrl(filePath);
+          .getPublicUrl(uploadData.path); // ✅ 使用 uploadData.path
         
         fileUrl = urlData.publicUrl;
-        console.log("📁 文件上传成功，URL:", fileUrl);
+        
+        // ③ 【强制校验】不是 URL 就直接 throw（防止再次踩坑）
+        if (!fileUrl || !fileUrl.startsWith("http")) {
+          throw new Error(`file_url is not a public URL: ${fileUrl}`);
+        }
+        
+        console.log("📁 文件上传成功:");
+        console.log("  - 路径 (path):", filePath);
+        console.log("  - 完整 URL (fileUrl):", fileUrl);
+        console.log("  - URL 格式验证: ✅");
       }
 
       const taskData = {
@@ -99,24 +114,41 @@ export default function DashboardClient({ services, user }: Props) {
         throw insertError ?? new Error("Unable to create task.");
       }
 
-      console.log("📤 发送给 n8n 的数据:", {
+      // ④ 发给 n8n（只允许 fileUrl，绝对不能是 path）
+      const payload = {
         task_id: task.id,
         service_id: selected.id,
         user_id: user.id,
         input_text: inputText,
-        file_url: fileUrl, // ✅ 使用完整的 URL
+        file_url: fileUrl, // ✅ 只能是 URL，绝对不能是 path
+      };
+
+      // 【最终强制验证】确保 file_url 是完整的 URL（如果有文件）
+      if (file) {
+        if (!fileUrl) {
+          throw new Error("文件已上传但无法生成 URL");
+        }
+        if (!fileUrl.startsWith("http://") && !fileUrl.startsWith("https://")) {
+          throw new Error(`file_url 必须是完整的 HTTP URL，但得到: ${fileUrl}`);
+        }
+        // 额外检查：确保不是 path
+        if (fileUrl.includes("\\") || (!fileUrl.includes("://") && fileUrl.includes("/"))) {
+          throw new Error(`file_url 看起来像是路径而不是 URL: ${fileUrl}`);
+        }
+      }
+
+      console.log("📤 发送给 n8n 的完整数据:", JSON.stringify(payload, null, 2));
+      console.log("📤 file_url 最终验证:", {
+        value: payload.file_url,
+        type: typeof payload.file_url,
+        isUrl: payload.file_url?.startsWith("http"),
+        isPath: payload.file_url?.includes("\\") || (!payload.file_url?.includes("://") && payload.file_url?.includes("/")),
       });
 
       await fetch(selected.webhook_url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          task_id: task.id,
-          service_id: selected.id,
-          user_id: user.id,
-          input_text: inputText,
-          file_url: fileUrl, // ✅ 传递完整的 URL 给 n8n
-        }),
+        body: JSON.stringify(payload),
       });
 
       setSuccess("Task submitted and webhook triggered.");
