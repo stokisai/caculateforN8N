@@ -85,14 +85,26 @@ export default function DashboardClient({ services, user }: Props) {
         
         fileUrl = urlData.publicUrl;
         
-        // ③ 【强制校验】不是 URL 就直接 throw（防止再次踩坑）
+        // 🔴 验证 URL 格式：必须包含 /public/
         if (!fileUrl || !fileUrl.startsWith("http")) {
           throw new Error(`file_url is not a public URL: ${fileUrl}`);
+        }
+        
+        // 🔴 额外验证：确保 URL 包含 /public/（这是公共 URL 的关键）
+        if (!fileUrl.includes("/storage/v1/object/public/")) {
+          // 如果 getPublicUrl 没有生成正确的 URL，手动构建
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          if (!supabaseUrl) {
+            throw new Error("NEXT_PUBLIC_SUPABASE_URL 未配置");
+          }
+          fileUrl = `${supabaseUrl}/storage/v1/object/public/task-files/${uploadData.path}`;
+          console.warn("⚠️ getPublicUrl 生成的 URL 不正确，手动构建:", fileUrl);
         }
         
         console.log("📁 文件上传成功:");
         console.log("  - 路径 (path):", filePath);
         console.log("  - 完整 URL (fileUrl):", fileUrl);
+        console.log("  - URL 包含 /public/:", fileUrl.includes("/public/") ? "✅" : "❌");
         console.log("  - URL 格式验证: ✅");
       }
 
@@ -137,6 +149,17 @@ export default function DashboardClient({ services, user }: Props) {
         }
       }
 
+      // 🔴 最终检查：如果 file_url 是 path 而不是 URL，直接报错
+      if (file && payload.file_url) {
+        const isPath = !payload.file_url.startsWith("http://") && !payload.file_url.startsWith("https://");
+        if (isPath) {
+          const errorMsg = `❌ 严重错误：file_url 是路径而不是 URL！\n\n路径: ${payload.file_url}\n\n这不应该发生！请检查代码。`;
+          console.error(errorMsg);
+          alert(errorMsg);
+          throw new Error(errorMsg);
+        }
+      }
+
       console.log("📤 发送给 n8n 的完整数据:", JSON.stringify(payload, null, 2));
       console.log("📤 file_url 最终验证:", {
         value: payload.file_url,
@@ -145,10 +168,23 @@ export default function DashboardClient({ services, user }: Props) {
         isPath: payload.file_url?.includes("\\") || (!payload.file_url?.includes("://") && payload.file_url?.includes("/")),
       });
 
+      // 🔴 发送前最后一次验证
+      const bodyString = JSON.stringify(payload);
+      if (file && bodyString.includes('"file_url":"') && !bodyString.includes('"file_url":"http')) {
+        const errorMsg = `❌ 发送前检查失败：payload 中的 file_url 不是 URL！\n\n${bodyString}`;
+        console.error(errorMsg);
+        alert(errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      console.log("✅ 验证通过，准备发送到 n8n...");
+      console.log("🔗 Webhook URL:", selected.webhook_url);
+      console.log("📦 Payload body:", bodyString);
+
       await fetch(selected.webhook_url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: bodyString,
       });
 
       setSuccess("Task submitted and webhook triggered.");
