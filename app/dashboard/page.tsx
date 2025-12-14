@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import DashboardClient from "./dashboard-client";
+import DashboardClient from "./ui/dashboard-client";
 import type { Service } from "@/types/supabase";
 
 export default async function DashboardPage() {

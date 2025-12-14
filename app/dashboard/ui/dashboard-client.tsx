@@ -142,51 +142,83 @@ export default function DashboardClient({ services, user }: Props) {
 
       <main className="mx-auto max-w-6xl px-4 pb-16">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {services.map((service) => (
-            <article
-              key={service.id}
-              className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-            >
-              <div className="relative h-40 w-full bg-slate-100">
-                <Image
-                  src={
-                    service.image_url ||
-                    "https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?auto=format&fit=crop&w=1200&q=80"
-                  }
-                  alt={service.title}
-                  fill
-                  className="object-cover"
-                  sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                />
-              </div>
-              <div className="flex flex-1 flex-col gap-3 p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    {service.title}
-                  </h3>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase text-slate-700">
-                    {service.input_type}
-                  </span>
+          {services.map((service) => {
+            // 🔍 调试日志：检查每个 service 的数据完整性
+            console.log("🔍 SERVICE DATA:", {
+              id: service.id,
+              title: service.title,
+              webhook_url: service.webhook_url,
+              input_type: service.input_type,
+              image_url: service.image_url,
+              has_webhook: !!service.webhook_url,
+              has_input_type: !!service.input_type,
+            });
+
+            return (
+              <article
+                key={service.id}
+                className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+              >
+                {/* ✅ 修复 1: 图片容器 - 确保有 relative 和固定高度 */}
+                <div className="relative h-40 w-full overflow-hidden bg-slate-100">
+                  <Image
+                    src={
+                      service.image_url ||
+                      "https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?auto=format&fit=crop&w=1200&q=80"
+                    }
+                    alt={service.title}
+                    fill
+                    className="object-cover"
+                    sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                  />
                 </div>
-                <p className="text-sm text-slate-600 line-clamp-3">
-                  {service.description}
-                </p>
-                <div className="mt-auto pt-2">
-                  <Button
-                    className="w-full"
-                    onClick={() => {
-                      setSelected(service);
-                      setOpen(true);
-                      setError(null);
-                      setSuccess(null);
-                    }}
-                  >
-                    Use Agent
-                  </Button>
+                <div className="flex flex-1 flex-col gap-3 p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      {service.title}
+                    </h3>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase text-slate-700">
+                      {service.input_type}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600 line-clamp-3">
+                    {service.description}
+                  </p>
+                  <div className="mt-auto pt-2">
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        // ✅ 修复 2: 添加数据验证 - 防止点击无效
+                        if (!service.webhook_url) {
+                          alert("该服务暂未配置 webhook URL，无法使用");
+                          console.error("❌ 服务缺少 webhook_url:", service);
+                          return;
+                        }
+                        if (!service.input_type) {
+                          alert("该服务缺少输入类型配置");
+                          console.error("❌ 服务缺少 input_type:", service);
+                          return;
+                        }
+                        if (!service.id) {
+                          alert("服务数据异常，缺少 ID");
+                          console.error("❌ 服务缺少 id:", service);
+                          return;
+                        }
+
+                        console.log("✅ 选择服务:", service);
+                        setSelected(service);
+                        setOpen(true);
+                        setError(null);
+                        setSuccess(null);
+                      }}
+                    >
+                      Use Agent
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
           {services.length === 0 && (
             <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-slate-600">
               No services yet. Add rows to the <code>services</code> table in Supabase.
