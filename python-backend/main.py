@@ -125,15 +125,29 @@ async def process_excel(
         
         # 3. 业务逻辑处理（根据 service_id 执行不同的处理）
         print(f"🔄 开始处理，Service ID: {service_id}")
-        result_df = process_dataframe(df, service_id, input_text)
-        print(f"✅ 处理完成，结果行数: {len(result_df)}")
+        result = process_dataframe(df, service_id, input_text)
+        print(f"✅ 处理完成，返回类型: {type(result).__name__}")
         
-        # 4. 导出结果到内存
+        # 4. 检查返回类型：如果是字符串（文本报告），返回纯文本文件；否则返回 Excel
+        print(f"🔍 检查返回类型: isinstance(result, str) = {isinstance(result, str)}")
+        if isinstance(result, str):
+            print("📄 返回纯文本文件（.txt）")
+            # 返回纯文本文件（.txt）
+            text_bytes = result.encode('utf-8')
+            return StreamingResponse(
+                io.BytesIO(text_bytes),
+                media_type="text/plain; charset=utf-8",
+                headers={
+                    "Content-Disposition": f'attachment; filename="roi_report_{int(pd.Timestamp.now().timestamp() * 1000)}.txt"'
+                }
+            )
+        
+        # 5. 导出结果到内存（Excel 文件）
         output = io.BytesIO()
-        result_df.to_excel(output, index=False, engine='openpyxl')
+        result.to_excel(output, index=False, engine='openpyxl')
         output.seek(0)
         
-        # 5. 返回文件流（直接下载，不经过 Supabase）
+        # 6. 返回文件流（直接下载，不经过 Supabase）
         # ✅ 修复：处理中文文件名编码问题
         # 使用 RFC 5987 格式支持 UTF-8 编码的文件名
         from urllib.parse import quote
@@ -176,13 +190,19 @@ async def process_excel(
         raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
 
 
-def process_dataframe(df: pd.DataFrame, service_id: Optional[str], input_text: Optional[str]) -> pd.DataFrame:
+def process_dataframe(df: pd.DataFrame, service_id: Optional[str], input_text: Optional[str]):
     """
     根据服务ID执行不同的数据处理逻辑
+    
+    返回:
+    - 如果是文本报告服务，返回 str
+    - 如果是文件处理服务，返回 pd.DataFrame
     """
     result_df = df.copy()
     
     # 根据不同的 service_id 执行不同的处理
+    print(f"🔍 处理 service_id: {service_id}")
+    print(f"🔍 检查是否匹配计算投产比: {service_id == '65bb6f50-5087-488e-8f1b-350d4ed9fe00'}")
     if service_id == "h10" or service_id == "abfaf85c-9553-4d7b-9416-e3aff65e8587":  # Ex大名)
         # H10 处理逻辑
         # 示例：添加处理状态列
@@ -195,11 +215,17 @@ def process_dataframe(df: pd.DataFrame, service_id: Optional[str], input_text: O
         result_df = filter_core_keywords(result_df)
         
     elif service_id == "65bb6f50-5087-488e-8f1b-350d4ed9fe00":  # 计算投产比
-        # 投产比计算逻辑
-        # 示例：假设有"投入"和"产出"两列
-        if "投入" in result_df.columns and "产出" in result_df.columns:
-            result_df["投产比"] = result_df["产出"] / result_df["投入"]
-        result_df["计算状态"] = "已完成"
+        # ✅ 计算投产比逻辑（返回文本报告）
+        print("🎯 执行计算投产比服务")
+        try:
+            report = calculate_roi(df)  # 使用原始 df，不需要 copy
+            print(f"✅ calculate_roi 返回类型: {type(report).__name__}, 长度: {len(report) if isinstance(report, str) else 'N/A'}")
+            return report
+        except Exception as e:
+            print(f"❌ calculate_roi 执行失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise  # 重新抛出异常，让上层处理
         
     else:
         # 默认处理
@@ -352,6 +378,124 @@ def filter_core_keywords(df: pd.DataFrame) -> pd.DataFrame:
     print(f"✅ 筛选完成，最终输出 {len(result_df)} 行")
     
     return result_df
+
+
+def clean_numeric_value(value) -> float:
+    """
+    清洗数值：去除逗号，转换为数值，无法解析的按 0 处理
+    """
+    if pd.isna(value):
+        return 0.0
+    
+    try:
+        # 转换为字符串，去除逗号和其他分隔符
+        value_str = str(value).strip().replace(',', '').replace('，', '').replace(' ', '')
+        # 尝试转换为浮点数
+        return float(value_str)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def calculate_roi(df: pd.DataFrame):
+    """
+    计算投产比（ROI）
+    
+    逻辑：
+    1. 读取 Excel 数据并逐行遍历
+    2. 对字段进行数值清洗（去除逗号，转换为数值，无法解析的按 0 处理）
+    3. 累加计算全表数据（总点击量、总购买量）
+    4. 计算加权竞价分子
+    5. 读取第一个大于 0 的产品均价作为参考客单价
+    6. 防止除以 0
+    7. 计算核心指标（平均转化率、加权平均竞价、预估 ACOS）
+    8. 整理为文本分析报告
+    """
+    print("🔍 开始计算投产比...")
+    
+    # 1. 找到所需的列（根据图片，列名可能是：周点击量、周购买量、竞价-推荐、均价-平均）
+    print(f"📋 可用列名: {list(df.columns)}")
+    
+    # 周点击量：可能是 F 列（索引5）或列名"周点击量"
+    click_col = find_column(df, ["周点击量", "点击量", "Clicks", "F"], 5)
+    # 周购买量：可能是 G 列（索引6）或列名"周购买量"
+    purchase_col = find_column(df, ["周购买量", "购买量", "Purchases", "G"], 6)
+    # 竞价：可能是"竞价-推荐"（K列，索引10）或其他竞价列
+    bid_col = find_column(df, ["竞价-推荐", "竞价", "Bid", "出价", "K"], 10)
+    # 产品均价：可能是"均价-平均"（P列，索引15）或其他均价列
+    price_col = find_column(df, ["均价-平均", "产品均价", "客单价", "Price", "平均价格", "P"], 15)
+    
+    if not click_col:
+        raise ValueError(f"未找到周点击量列。可用列名: {list(df.columns)}")
+    if not purchase_col:
+        raise ValueError(f"未找到周购买量列。可用列名: {list(df.columns)}")
+    if not bid_col:
+        raise ValueError(f"未找到竞价列。可用列名: {list(df.columns)}")
+    if not price_col:
+        raise ValueError(f"未找到产品均价列。可用列名: {list(df.columns)}")
+    
+    print(f"✅ 找到列: 周点击量={click_col}, 周购买量={purchase_col}, 竞价={bid_col}, 产品均价={price_col}")
+    
+    # 2. 逐行遍历并清洗数据
+    total_clicks = 0.0
+    total_purchases = 0.0
+    weighted_bid_sum = 0.0  # 加权竞价分子：竞价 × 点击量 的累加
+    reference_price = 0.0  # 第一个大于 0 的产品均价
+    
+    for idx, row in df.iterrows():
+        # 清洗数值
+        clicks = clean_numeric_value(row[click_col])
+        purchases = clean_numeric_value(row[purchase_col])
+        bid = clean_numeric_value(row[bid_col])
+        price = clean_numeric_value(row[price_col])
+        
+        # 累加总点击量和总购买量
+        total_clicks += clicks
+        total_purchases += purchases
+        
+        # 计算加权竞价分子（当点击量 > 0 且竞价 > 0 时）
+        if clicks > 0 and bid > 0:
+            weighted_bid_sum += bid * clicks
+        
+        # 读取第一个大于 0 的产品均价作为参考客单价
+        if reference_price == 0.0 and price > 0:
+            reference_price = price
+    
+    print(f"📊 统计数据: 总点击量={total_clicks}, 总购买量={total_purchases}, 加权竞价分子={weighted_bid_sum}, 参考客单价={reference_price}")
+    
+    # 3. 防止除以 0
+    if total_clicks == 0:
+        total_clicks = 1.0
+        print("⚠️ 总点击量为 0，按 1 处理")
+    if reference_price == 0.0:
+        reference_price = 1.0
+        print("⚠️ 客单价为 0，按 1 处理")
+    
+    # 4. 计算核心指标
+    # 平均转化率 (%) = (总购买量 ÷ 总点击量) × 100
+    conversion_rate = (total_purchases / total_clicks) * 100
+    
+    # 加权平均竞价 = (竞价 × 点击量之和) ÷ 总点击量
+    weighted_avg_bid = weighted_bid_sum / total_clicks
+    
+    # 预估 ACOS (%) = 加权平均竞价 ÷ (客单价 × 转化率) × 100
+    # 注意：转化率需要转换为小数（除以 100）
+    if conversion_rate > 0:
+        estimated_acos = (weighted_avg_bid / (reference_price * (conversion_rate / 100))) * 100
+    else:
+        estimated_acos = 0.0
+    
+    print(f"📈 计算结果: 转化率={conversion_rate:.2f}%, 加权平均竞价={weighted_avg_bid:.2f}, 预估ACOS={estimated_acos:.2f}%")
+    
+    # 5. 整理为文本分析报告（只包含核心指标，一段话格式）
+    report = f"""投产比分析报告
+
+核心指标：
+平均转化率: {conversion_rate:.2f}%
+加权平均竞价: {weighted_avg_bid:.2f}
+预估 ACOS: {estimated_acos:.2f}%"""
+    
+    print("✅ 投产比计算完成")
+    return report
 
 
 @app.post("/webhook/{webhook_path:path}")
