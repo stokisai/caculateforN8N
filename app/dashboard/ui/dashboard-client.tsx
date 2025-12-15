@@ -51,6 +51,7 @@ export default function DashboardClient({ services, user }: Props) {
     setSuccess(null);
 
     try {
+      // 验证输入
       if (requiresText && !inputText.trim()) {
         throw new Error("Please provide the required text input.");
       }
@@ -58,146 +59,102 @@ export default function DashboardClient({ services, user }: Props) {
         throw new Error("Please attach the required file.");
       }
 
-      let filePath: string | null = null;
-      let fileUrl: string | null = null;
-
-      if (file) {
-        // ① 上传文件
-        const path = `${user.id}/${selected.id}/${Date.now()}-${file.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("task-files")
-          .upload(path, file);
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        // ⚠️ 关键：必须使用 uploadData.path，不能自己拼
-        filePath = uploadData?.path;
-        if (!filePath) {
-          throw new Error("文件上传失败：无法获取文件路径");
-        }
-
-        // ② 手动构建 Public URL（不依赖 getPublicUrl，确保格式正确）
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        if (!supabaseUrl) {
-          throw new Error("NEXT_PUBLIC_SUPABASE_URL 未配置");
-        }
-        
-        // 🔴 直接手动构建 URL，确保格式正确
-        fileUrl = `${supabaseUrl}/storage/v1/object/public/task-files/${uploadData.path}`;
-        
-        // 🔴 强制验证：必须是完整的 HTTP URL
-        if (!fileUrl.startsWith("http://") && !fileUrl.startsWith("https://")) {
-          throw new Error(`生成的 URL 格式错误: ${fileUrl}`);
-        }
-        
-        // 🔴 强制验证：必须包含 /public/
-        if (!fileUrl.includes("/storage/v1/object/public/")) {
-          throw new Error(`URL 必须包含 /public/，但得到: ${fileUrl}`);
-        }
-        
-        console.log("📁 文件上传成功:");
-        console.log("  - 路径 (path):", filePath);
-        console.log("  - Supabase URL:", supabaseUrl);
-        console.log("  - 完整 URL (fileUrl):", fileUrl);
-        console.log("  - URL 包含 /public/:", fileUrl.includes("/public/") ? "✅" : "❌");
-        console.log("  - URL 格式验证: ✅");
-      }
-
-      const taskData = {
-        user_id: user.id,
-        service_id: selected.id,
-        input_text: inputText || null,
-        file_url: filePath, // 存储路径用于内部引用
-        status: "pending",
-      };
-
-      const { data: task, error: insertError } = await (supabase
-        .from("tasks")
-        .insert(taskData as any) as any)
-        .select()
-        .single();
-
-      if (insertError || !task) {
-        throw insertError ?? new Error("Unable to create task.");
-      }
-
-      // ④ 发给 n8n（只允许 fileUrl，绝对不能是 path）
-      const payload = {
-        task_id: task.id,
-        service_id: selected.id,
-        user_id: user.id,
-        input_text: inputText,
-        file_url: fileUrl, // ✅ 只能是 URL，绝对不能是 path
-      };
-
-      // 【最终强制验证】确保 file_url 是完整的 URL（如果有文件）
-      if (file) {
-        if (!fileUrl) {
-          throw new Error("文件已上传但无法生成 URL");
-        }
-        if (!fileUrl.startsWith("http://") && !fileUrl.startsWith("https://")) {
-          throw new Error(`file_url 必须是完整的 HTTP URL，但得到: ${fileUrl}`);
-        }
-        // 额外检查：确保不是 path
-        if (fileUrl.includes("\\") || (!fileUrl.includes("://") && fileUrl.includes("/"))) {
-          throw new Error(`file_url 看起来像是路径而不是 URL: ${fileUrl}`);
-        }
-      }
-
-      // 🔴 最终检查：如果 file_url 是 path 而不是 URL，直接报错
-      if (file && payload.file_url) {
-        const isPath = !payload.file_url.startsWith("http://") && !payload.file_url.startsWith("https://");
-        if (isPath) {
-          const errorMsg = `❌ 严重错误：file_url 是路径而不是 URL！\n\n路径: ${payload.file_url}\n\n这不应该发生！请检查代码。`;
-          console.error(errorMsg);
-          alert(errorMsg);
-          throw new Error(errorMsg);
-        }
-      }
-
-      console.log("📤 发送给 n8n 的完整数据:", JSON.stringify(payload, null, 2));
-      console.log("📤 file_url 最终验证:", {
-        value: payload.file_url,
-        type: typeof payload.file_url,
-        isUrl: payload.file_url?.startsWith("http"),
-        isPath: payload.file_url?.includes("\\") || (!payload.file_url?.includes("://") && payload.file_url?.includes("/")),
-      });
-
-      // 🔴 发送前最后一次验证
-      const bodyString = JSON.stringify(payload);
-      if (file && bodyString.includes('"file_url":"') && !bodyString.includes('"file_url":"http')) {
-        const errorMsg = `❌ 发送前检查失败：payload 中的 file_url 不是 URL！\n\n${bodyString}`;
-        console.error(errorMsg);
-        alert(errorMsg);
-        throw new Error(errorMsg);
-      }
-
-      console.log("✅ 验证通过，准备发送到 n8n...");
-      console.log("🔗 Webhook URL:", selected.webhook_url);
-      console.log("📦 Payload body:", bodyString);
+      // ✅ 新架构：直接调用 FastAPI，不经过 n8n 和 Supabase Storage
+      // FastAPI endpoint 存储在 services.webhook_url 中（需要更新为 FastAPI URL）
+      const fastApiUrl = selected.webhook_url;
       
-      // 🔴 调试：显示实际发送的 file_url（仅开发环境）
-      if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {
-        console.log("🔍 [调试] 实际发送的 file_url:", payload.file_url);
-        if (file && payload.file_url && !payload.file_url.startsWith("http")) {
-          alert(`❌ 错误：file_url 不是 URL！\n\n值: ${payload.file_url}\n\n这不应该发生！`);
-        }
+      if (!fastApiUrl || !fastApiUrl.startsWith("http")) {
+        throw new Error(`FastAPI URL 配置错误: ${fastApiUrl}`);
       }
 
-      await fetch(selected.webhook_url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: bodyString,
+      console.log("🚀 直接调用 FastAPI:", fastApiUrl);
+      console.log("📤 发送数据:", {
+        hasFile: !!file,
+        fileName: file?.name,
+        fileSize: file?.size,
+        hasText: !!inputText,
+        textLength: inputText?.length,
       });
 
-      setSuccess("Task submitted and webhook triggered.");
+      // 构建 FormData（multipart/form-data）
+      const formData = new FormData();
+      
+      // 如果有文件，直接添加到 FormData
+      if (file) {
+        formData.append("file", file);
+        console.log("📁 文件已添加到 FormData:", file.name, file.size, "bytes");
+      }
+      
+      // 如果有文本输入，也添加到 FormData
+      if (inputText) {
+        formData.append("input_text", inputText);
+        console.log("📝 文本已添加到 FormData:", inputText.length, "字符");
+      }
+      
+      // ✅ 传递 service_id 给 FastAPI（用于区分不同的处理逻辑）
+      formData.append("service_id", selected.id);
+      console.log("🔑 Service ID:", selected.id);
+
+      // 直接 POST 到 FastAPI
+      const response = await fetch(fastApiUrl, {
+        method: "POST",
+        body: formData,
+        // 不要设置 Content-Type，让浏览器自动设置 multipart/form-data with boundary
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ FastAPI 错误响应:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText,
+        });
+        throw new Error(errorText || `FastAPI 返回错误: ${response.status}`);
+      }
+
+      // 处理响应
+      const contentType = response.headers.get("content-type") || "";
+      console.log("📥 FastAPI 响应:", {
+        status: response.status,
+        contentType: contentType,
+      });
+      
+      if (contentType.includes("application/json")) {
+        // JSON 响应
+        const data = await response.json();
+        console.log("📥 FastAPI JSON 响应:", data);
+        const resultText = data.message || data.result || JSON.stringify(data, null, 2);
+        setSuccess(resultText);
+      } else {
+        // 文件响应（如 Excel）
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+
+        const contentDisposition = response.headers.get("content-disposition");
+        let fileName = `result_${Date.now()}.xlsx`;
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename="?(.+)"?/);
+          if (match) fileName = match[1];
+        }
+
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        setSuccess("文件已下载！");
+      }
+
+      // 重置表单
       setInputText("");
       setFile(null);
-      setTimeout(() => setOpen(false), 800);
+      setTimeout(() => setOpen(false), 1500);
     } catch (err: any) {
-      setError(err?.message ?? "Something went wrong. Please try again.");
+      console.error("❌ FastAPI 调用失败:", err);
+      setError(err?.message ?? "处理失败，请重试");
     } finally {
       setLoading(false);
     }
