@@ -5,11 +5,15 @@ import pandas as pd
 import io
 import zipfile
 import os
-from typing import Optional
+from typing import Optional, List, Dict, Tuple
 from supabase import create_client, Client
 import json
 import locale
 import re
+import time
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import quote
 
 # --- 配置部分 ---
 app = FastAPI(title="Excel Processing API", version="1.0.0")
@@ -196,11 +200,8 @@ def process_dataframe(df: pd.DataFrame, service_id: Optional[str], input_text: O
     
     # 根据不同的 service_id 执行不同的处理
     if service_id == "h10" or service_id == "abfaf85c-9553-4d7b-9416-e3aff65e8587":  # Ex大名)
-        # H10 处理逻辑
-        # 示例：添加处理状态列
-        result_df["处理状态"] = "已通过 Python 后端处理"
-        result_df["处理时间"] = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
-        # 这里可以添加你的具体业务逻辑
+        # ✅ Ex大名 处理逻辑：计算 50个评论以内的ASIN占比
+        result_df = calculate_asin_ratio(df)
         
     elif service_id == "d144da99-d3e6-4b78-9cd5-70b1e4ced346":  # 筛选核心关键词
         # ✅ 筛选核心关键词逻辑
@@ -458,6 +459,200 @@ def calculate_roi(df: pd.DataFrame):
         report += f"\n📉 预估总 ACOS: {estimated_acos:.2f}%"
     
     return report
+
+
+def search_amazon_natural_products(keyword: str, max_retries: int = 3) -> List[Dict[str, any]]:
+    """
+    在 Amazon 美国站搜索关键词，获取首页自然位 ASIN 及其评论数
+    
+    参数:
+    - keyword: 搜索关键词
+    - max_retries: 最大重试次数
+    
+    返回:
+    - List[Dict]: 每个元素包含 {'asin': 'B0XXX', 'review_count': 123} 或空列表（如果失败）
+    """
+    url = f"https://www.amazon.com/s?k={quote(keyword)}"
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+    }
+    
+    products = []
+    
+    for attempt in range(max_retries):
+        try:
+            # 添加延迟，避免被反爬虫
+            if attempt > 0:
+                time.sleep(2 ** attempt)  # 指数退避：2秒、4秒、8秒
+            
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # 查找所有搜索结果项（排除广告位）
+            # Amazon 的自然搜索结果通常在 data-asin 属性中
+            search_results = soup.find_all('div', {'data-asin': True, 'data-component-type': 's-search-result'})
+            
+            for result in search_results:
+                # 排除广告位（Sponsored 广告）
+                sponsored = result.find('span', string=re.compile(r'Sponsored|广告', re.I))
+                if sponsored:
+                    continue
+                
+                # 获取 ASIN
+                asin = result.get('data-asin', '').strip()
+                if not asin or asin == '':
+                    continue
+                
+                # 获取评论数
+                review_count = 0
+                # 尝试多种方式查找评论数
+                review_elements = result.find_all('a', href=re.compile(r'/product-reviews/'))
+                for elem in review_elements:
+                    text = elem.get_text(strip=True)
+                    # 匹配 "1,234 ratings" 或 "1,234 个评分" 等格式
+                    match = re.search(r'([\d,]+)\s*(?:ratings?|个评分|reviews?)', text, re.I)
+                    if match:
+                        review_count_str = match.group(1).replace(',', '')
+                        try:
+                            review_count = int(review_count_str)
+                            break
+                        except ValueError:
+                            continue
+                
+                # 如果没找到评论数，尝试其他方式
+                if review_count == 0:
+                    # 尝试查找 aria-label 中的评论数
+                    aria_labels = result.find_all(attrs={'aria-label': True})
+                    for label_elem in aria_labels:
+                        label = label_elem.get('aria-label', '')
+                        match = re.search(r'([\d,]+)\s*(?:ratings?|个评分|reviews?)', label, re.I)
+                        if match:
+                            review_count_str = match.group(1).replace(',', '')
+                            try:
+                                review_count = int(review_count_str)
+                                break
+                            except ValueError:
+                                continue
+                
+                products.append({
+                    'asin': asin,
+                    'review_count': review_count
+                })
+            
+            # 如果找到了产品，返回结果
+            if products:
+                return products
+            
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️ Amazon 搜索请求失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt == max_retries - 1:
+                print(f"❌ 无法获取关键词 '{keyword}' 的搜索结果")
+                return []
+        except Exception as e:
+            print(f"⚠️ 解析 Amazon 搜索结果失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt == max_retries - 1:
+                print(f"❌ 无法解析关键词 '{keyword}' 的搜索结果")
+                return []
+    
+    return []
+
+
+def calculate_asin_ratio(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    计算 50个评论以内的ASIN占比
+    
+    逻辑：
+    1. 找到"关键词"列（作为主键）
+    2. 对每一行关键词，在 Amazon 搜索并获取首页自然位 ASIN
+    3. 统计首页自然位 ASIN 总数
+    4. 筛选评论数 < 50 的 ASIN
+    5. 计算占比
+    6. 在原表中插入新列"50个评论以内的ASIN占比"
+    """
+    # 1. 找到"关键词"列
+    keyword_col = find_column(df, ["关键词", "关键词列", "Keyword", "A"], 0)
+    
+    if not keyword_col:
+        raise ValueError("未找到'关键词'列，请确保 Excel 文件包含'关键词'列")
+    
+    # 2. 创建结果 DataFrame（复制原表）
+    result_df = df.copy()
+    
+    # 3. 确定新列的插入位置（关键词列的右侧，即索引 +1）
+    keyword_col_index = list(result_df.columns).index(keyword_col)
+    new_col_name = "50个评论以内的ASIN占比"
+    
+    # 4. 初始化新列
+    result_df[new_col_name] = "0.00%"
+    
+    # 5. 逐行处理关键词
+    total_rows = len(result_df)
+    print(f"📊 开始处理 {total_rows} 个关键词...")
+    
+    for idx, row in result_df.iterrows():
+        keyword = str(row[keyword_col]).strip()
+        
+        if not keyword or keyword == 'nan' or keyword == '':
+            print(f"⚠️ 第 {idx + 1} 行：关键词为空，跳过")
+            continue
+        
+        print(f"🔍 [{idx + 1}/{total_rows}] 处理关键词: {keyword}")
+        
+        try:
+            # 搜索 Amazon 获取首页自然位 ASIN
+            products = search_amazon_natural_products(keyword)
+            
+            if not products:
+                print(f"  ⚠️ 未找到搜索结果，使用默认值 0.00%")
+                result_df.at[idx, new_col_name] = "0.00%"
+                # 添加延迟，避免请求过快
+                time.sleep(1)
+                continue
+            
+            # 统计首页自然位 ASIN 总数
+            total_found = len(products)
+            
+            # 筛选评论数 < 50 的 ASIN
+            low_rating_count = sum(1 for p in products if p['review_count'] < 50)
+            
+            # 计算占比
+            if total_found > 0:
+                ratio = (low_rating_count / total_found) * 100
+                ratio_percent = f"{ratio:.2f}%"
+            else:
+                ratio_percent = "0.00%"
+            
+            result_df.at[idx, new_col_name] = ratio_percent
+            print(f"  ✅ 完成：总ASIN={total_found}, 低评论ASIN={low_rating_count}, 占比={ratio_percent}")
+            
+            # 添加延迟，避免请求过快（每个关键词之间延迟 2 秒）
+            time.sleep(2)
+            
+        except Exception as e:
+            print(f"  ❌ 处理关键词 '{keyword}' 时出错: {str(e)}")
+            result_df.at[idx, new_col_name] = "0.00%"
+            import traceback
+            traceback.print_exc()
+            # 即使出错也添加延迟
+            time.sleep(1)
+    
+    # 6. 将新列插入到关键词列的右侧
+    cols = list(result_df.columns)
+    cols.remove(new_col_name)
+    insert_index = keyword_col_index + 1
+    cols.insert(insert_index, new_col_name)
+    result_df = result_df[cols]
+    
+    print(f"✅ 处理完成，已添加新列 '{new_col_name}'")
+    return result_df
 
 
 @app.post("/webhook/{webhook_path:path}")

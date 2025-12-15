@@ -9,3 +9,8 @@ xlsxwriter==3.1.9
 python-multipart==0.0.6
 python-dotenv==1.0.0
 supabase==2.0.3
+
+# 用于 Amazon 搜索爬虫
+requests==2.31.0
+beautifulsoup4==4.12.2
+lxml==4.9.3
