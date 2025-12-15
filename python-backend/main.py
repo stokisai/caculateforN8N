@@ -120,18 +120,12 @@ async def process_excel(
         if df is None or df.empty:
             raise HTTPException(status_code=400, detail="读取的 Excel 文件为空")
         
-        print(f"📊 数据行数: {len(df)}, 列数: {len(df.columns)}")
-        print(f"📊 列名: {list(df.columns)}")
         
         # 3. 业务逻辑处理（根据 service_id 执行不同的处理）
-        print(f"🔄 开始处理，Service ID: {service_id}")
         result = process_dataframe(df, service_id, input_text)
-        print(f"✅ 处理完成，返回类型: {type(result).__name__}")
         
         # 4. 检查返回类型：如果是字符串（文本报告），返回纯文本文件；否则返回 Excel
-        print(f"🔍 检查返回类型: isinstance(result, str) = {isinstance(result, str)}")
         if isinstance(result, str):
-            print("📄 返回纯文本文件（.txt）")
             # 返回纯文本文件（.txt）
             text_bytes = result.encode('utf-8')
             return StreamingResponse(
@@ -201,8 +195,6 @@ def process_dataframe(df: pd.DataFrame, service_id: Optional[str], input_text: O
     result_df = df.copy()
     
     # 根据不同的 service_id 执行不同的处理
-    print(f"🔍 处理 service_id: {service_id}")
-    print(f"🔍 检查是否匹配计算投产比: {service_id == '65bb6f50-5087-488e-8f1b-350d4ed9fe00'}")
     if service_id == "h10" or service_id == "abfaf85c-9553-4d7b-9416-e3aff65e8587":  # Ex大名)
         # H10 处理逻辑
         # 示例：添加处理状态列
@@ -216,16 +208,7 @@ def process_dataframe(df: pd.DataFrame, service_id: Optional[str], input_text: O
         
     elif service_id == "65bb6f50-5087-488e-8f1b-350d4ed9fe00":  # 计算投产比
         # ✅ 计算投产比逻辑（返回文本报告）
-        print("🎯 执行计算投产比服务")
-        try:
-            report = calculate_roi(df)  # 使用原始 df，不需要 copy
-            print(f"✅ calculate_roi 返回类型: {type(report).__name__}, 长度: {len(report) if isinstance(report, str) else 'N/A'}")
-            return report
-        except Exception as e:
-            print(f"❌ calculate_roi 执行失败: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            raise  # 重新抛出异常，让上层处理
+        return calculate_roi(df)
         
     else:
         # 默认处理
@@ -292,8 +275,6 @@ def filter_core_keywords(df: pd.DataFrame) -> pd.DataFrame:
     4. 取前60行
     5. 只保留关键词列
     """
-    print("🔍 开始筛选核心关键词...")
-    
     # 1. 找到所需的列
     keyword_col = find_column(df, ["关键词", "A"], 0)  # 第1列（索引0）
     related_product_col = find_column(df, ["相关产品", "G"], 6)  # 第7列（索引6）
@@ -305,8 +286,6 @@ def filter_core_keywords(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("未找到相关产品列（相关产品 或 G列）")
     if not aba_rank_col:
         raise ValueError("未找到ABA周排名列（ABA周排名 或 I列）")
-    
-    print(f"✅ 找到列: 关键词={keyword_col}, 相关产品={related_product_col}, ABA周排名={aba_rank_col}")
     
     # 2. 按"相关产品"列进行降序排序
     # 策略：分离数值和非数值，分别排序后合并
@@ -338,8 +317,6 @@ def filter_core_keywords(df: pd.DataFrame) -> pd.DataFrame:
     # 清理辅助列
     df = df.drop(['_is_numeric', '_numeric_val', '_str_val'], axis=1)
     
-    print(f"📊 排序后数据行数: {len(df)}")
-    
     # 3. 删除"ABA周排名"为空或无效的行
     invalid_values = ['-', '—', 'NA', 'N/A', 'null', 'NULL', 'Null', '']
     
@@ -362,20 +339,14 @@ def filter_core_keywords(df: pd.DataFrame) -> pd.DataFrame:
     mask = df[aba_rank_col].apply(is_valid_aba_rank)
     df = df[mask].copy()
     
-    print(f"📊 过滤后数据行数: {len(df)}")
-    
     # 4. 取前60行
     df = df.head(60)
-    
-    print(f"📊 取前60行后数据行数: {len(df)}")
     
     # 5. 只保留关键词列
     result_df = df[[keyword_col]].copy()
     
     # 重命名列为"关键词"（统一输出格式）
     result_df.columns = ['关键词']
-    
-    print(f"✅ 筛选完成，最终输出 {len(result_df)} 行")
     
     return result_df
 
@@ -410,30 +381,20 @@ def calculate_roi(df: pd.DataFrame):
     7. 计算核心指标（平均转化率、加权平均竞价、预估 ACOS）
     8. 整理为文本分析报告
     """
-    print("🔍 开始计算投产比...")
-    
-    # 1. 找到所需的列（根据图片，列名可能是：周点击量、周购买量、竞价-推荐、均价-平均）
-    print(f"📋 可用列名: {list(df.columns)}")
-    
-    # 周点击量：可能是 F 列（索引5）或列名"周点击量"
-    click_col = find_column(df, ["周点击量", "点击量", "Clicks", "F"], 5)
-    # 周购买量：可能是 G 列（索引6）或列名"周购买量"
-    purchase_col = find_column(df, ["周购买量", "购买量", "Purchases", "G"], 6)
-    # 竞价：可能是"竞价-推荐"（K列，索引10）或其他竞价列
-    bid_col = find_column(df, ["竞价-推荐", "竞价", "Bid", "出价", "K"], 10)
-    # 产品均价：可能是"均价-平均"（P列，索引15）或其他均价列
-    price_col = find_column(df, ["均价-平均", "产品均价", "客单价", "Price", "平均价格", "P"], 15)
+    # 1. 找到所需的列
+    click_col = find_column(df, ["周点击量", "点击量", "Clicks"], 5)  # F列（索引5）
+    purchase_col = find_column(df, ["周购买量", "购买量", "Purchases"], 6)  # G列（索引6）
+    bid_col = find_column(df, ["竞价-推荐", "竞价", "Bid", "出价"], 10)  # K列（索引10）
+    price_col = find_column(df, ["均价-平均", "产品均价", "客单价", "Price", "平均价格"], 15)  # P列（索引15）
     
     if not click_col:
-        raise ValueError(f"未找到周点击量列。可用列名: {list(df.columns)}")
+        raise ValueError("未找到周点击量列")
     if not purchase_col:
-        raise ValueError(f"未找到周购买量列。可用列名: {list(df.columns)}")
+        raise ValueError("未找到周购买量列")
     if not bid_col:
-        raise ValueError(f"未找到竞价列。可用列名: {list(df.columns)}")
+        raise ValueError("未找到竞价列")
     if not price_col:
-        raise ValueError(f"未找到产品均价列。可用列名: {list(df.columns)}")
-    
-    print(f"✅ 找到列: 周点击量={click_col}, 周购买量={purchase_col}, 竞价={bid_col}, 产品均价={price_col}")
+        raise ValueError("未找到产品均价列")
     
     # 2. 逐行遍历并清洗数据
     total_clicks = 0.0
@@ -460,15 +421,11 @@ def calculate_roi(df: pd.DataFrame):
         if reference_price == 0.0 and price > 0:
             reference_price = price
     
-    print(f"📊 统计数据: 总点击量={total_clicks}, 总购买量={total_purchases}, 加权竞价分子={weighted_bid_sum}, 参考客单价={reference_price}")
-    
     # 3. 防止除以 0
     if total_clicks == 0:
         total_clicks = 1.0
-        print("⚠️ 总点击量为 0，按 1 处理")
     if reference_price == 0.0:
         reference_price = 1.0
-        print("⚠️ 客单价为 0，按 1 处理")
     
     # 4. 计算核心指标
     # 平均转化率 (%) = (总购买量 ÷ 总点击量) × 100
@@ -484,9 +441,7 @@ def calculate_roi(df: pd.DataFrame):
     else:
         estimated_acos = 0.0
     
-    print(f"📈 计算结果: 转化率={conversion_rate:.2f}%, 加权平均竞价={weighted_avg_bid:.2f}, 预估ACOS={estimated_acos:.2f}%")
-    
-    # 5. 整理为文本分析报告（只包含核心指标，一段话格式）
+    # 5. 整理为文本分析报告（只包含核心指标）
     report = f"""投产比分析报告
 
 核心指标：
@@ -494,7 +449,6 @@ def calculate_roi(df: pd.DataFrame):
 加权平均竞价: {weighted_avg_bid:.2f}
 预估 ACOS: {estimated_acos:.2f}%"""
     
-    print("✅ 投产比计算完成")
     return report
 
 
