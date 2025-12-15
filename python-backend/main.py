@@ -464,13 +464,14 @@ def calculate_roi(df: pd.DataFrame):
 def search_amazon_natural_products(keyword: str, max_retries: int = 3) -> List[Dict[str, any]]:
     """
     在 Amazon 美国站搜索关键词，获取首页自然位 ASIN 及其评论数
+    参考 n8n 逻辑：使用正则表达式切分 HTML 块并解析
     
     参数:
     - keyword: 搜索关键词
     - max_retries: 最大重试次数
     
     返回:
-    - List[Dict]: 每个元素包含 {'asin': 'B0XXX', 'review_count': 123} 或空列表（如果失败）
+    - List[Dict]: 每个元素包含 {'asin': 'B0XXX', 'ratingCount': 123} 或空列表（如果失败）
     """
     url = f"https://www.amazon.com/s?k={quote(keyword)}"
     
@@ -483,8 +484,6 @@ def search_amazon_natural_products(keyword: str, max_retries: int = 3) -> List[D
         'Upgrade-Insecure-Requests': '1',
     }
     
-    products = []
-    
     for attempt in range(max_retries):
         try:
             # 添加延迟，避免被反爬虫
@@ -494,62 +493,59 @@ def search_amazon_natural_products(keyword: str, max_retries: int = 3) -> List[D
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             
-            soup = BeautifulSoup(response.content, 'html.parser')
+            # 获取 HTML 文本（参考 n8n 逻辑）
+            html = response.text
             
-            # 查找所有搜索结果项（排除广告位）
-            # Amazon 的自然搜索结果通常在 data-asin 属性中
-            search_results = soup.find_all('div', {'data-asin': True, 'data-component-type': 's-search-result'})
+            # Step 1️⃣：切分搜索结果块（参考 n8n 逻辑）
+            # 使用正则表达式切分包含 data-component-type="s-search-result" 的 div
+            blocks = re.split(r'<div[^>]+data-component-type="s-search-result"[^>]*>', html, flags=re.IGNORECASE)
+            blocks = blocks[1:]  # 跳过第一个空块（切分前的部分）
             
-            for result in search_results:
-                # 排除广告位（Sponsored 广告）
-                sponsored = result.find('span', string=re.compile(r'Sponsored|广告', re.I))
-                if sponsored:
+            items = []
+            
+            # Step 2️⃣：循环解析 ASIN + 评论数（参考 n8n 逻辑）
+            for raw in blocks:
+                # 提取 ASIN（10位字母数字）
+                asin_match = re.search(r'data-asin="([A-Z0-9]{10})"', raw, re.IGNORECASE)
+                if not asin_match:
                     continue
                 
-                # 获取 ASIN
-                asin = result.get('data-asin', '').strip()
-                if not asin or asin == '':
+                asin = asin_match.group(1)
+                
+                # 跳过广告（参考 n8n 逻辑：检测多个广告标识）
+                is_sponsored = bool(re.search(
+                    r'sp-sponsored-result|AdHolder|SponsoredAd|aria-label="Sponsored"|>Sponsored<',
+                    raw,
+                    re.IGNORECASE
+                ))
+                if is_sponsored:
                     continue
                 
-                # 获取评论数
-                review_count = 0
-                # 尝试多种方式查找评论数
-                review_elements = result.find_all('a', href=re.compile(r'/product-reviews/'))
-                for elem in review_elements:
-                    text = elem.get_text(strip=True)
-                    # 匹配 "1,234 ratings" 或 "1,234 个评分" 等格式
-                    match = re.search(r'([\d,]+)\s*(?:ratings?|个评分|reviews?)', text, re.I)
-                    if match:
-                        review_count_str = match.group(1).replace(',', '')
-                        try:
-                            review_count = int(review_count_str)
-                            break
-                        except ValueError:
-                            continue
+                # 提取评论数（参考 n8n 逻辑：优先使用 aria-label，其次使用 >数字 ratings</a>）
+                rating_match = (
+                    re.search(r'aria-label="([\d,]+)\s+ratings?"', raw, re.IGNORECASE) or
+                    re.search(r'>\s*([\d,]+)\s+ratings?\s*</a>', raw, re.IGNORECASE)
+                )
                 
-                # 如果没找到评论数，尝试其他方式
-                if review_count == 0:
-                    # 尝试查找 aria-label 中的评论数
-                    aria_labels = result.find_all(attrs={'aria-label': True})
-                    for label_elem in aria_labels:
-                        label = label_elem.get('aria-label', '')
-                        match = re.search(r'([\d,]+)\s*(?:ratings?|个评分|reviews?)', label, re.I)
-                        if match:
-                            review_count_str = match.group(1).replace(',', '')
-                            try:
-                                review_count = int(review_count_str)
-                                break
-                            except ValueError:
-                                continue
+                rating_count = 0
+                if rating_match:
+                    try:
+                        rating_count = int(rating_match.group(1).replace(',', ''))
+                    except (ValueError, AttributeError):
+                        rating_count = 0
                 
-                products.append({
+                items.append({
                     'asin': asin,
-                    'review_count': review_count
+                    'ratingCount': rating_count
                 })
             
             # 如果找到了产品，返回结果
-            if products:
-                return products
+            if items:
+                print(f"  ✅ 找到 {len(items)} 个自然位产品")
+                return items
+            else:
+                print(f"  ⚠️ 未找到任何产品")
+                return []
             
         except requests.exceptions.RequestException as e:
             print(f"⚠️ Amazon 搜索请求失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
@@ -560,6 +556,8 @@ def search_amazon_natural_products(keyword: str, max_retries: int = 3) -> List[D
             print(f"⚠️ 解析 Amazon 搜索结果失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
             if attempt == max_retries - 1:
                 print(f"❌ 无法解析关键词 '{keyword}' 的搜索结果")
+                import traceback
+                traceback.print_exc()
                 return []
     
     return []
@@ -617,21 +615,28 @@ def calculate_asin_ratio(df: pd.DataFrame) -> pd.DataFrame:
                 time.sleep(1)
                 continue
             
-            # 统计首页自然位 ASIN 总数
-            total_found = len(products)
+            # Step 1️⃣ 过滤 Sponsored 广告块（参考 n8n 逻辑：二次过滤）
+            # 注意：search_amazon_natural_products 已经过滤了大部分广告，这里保留所有
+            filtered = products  # 已经过滤过了
             
-            # 筛选评论数 < 50 的 ASIN
-            low_rating_count = sum(1 for p in products if p['review_count'] < 50)
+            # Step 2️⃣ 找出评论数低于 50 的自然位（参考 n8n 逻辑）
+            low_ratings = [p for p in filtered if p['ratingCount'] < 50]
             
-            # 计算占比
-            if total_found > 0:
-                ratio = (low_rating_count / total_found) * 100
+            # Step 3️⃣ 计算占比（参考 n8n 逻辑）
+            # 分子：低评论数（<50）的自然位产品数量
+            numerator = len(low_ratings)
+            # 分母：去除广告后首页自然位总数
+            denominator = len(filtered)
+            
+            # 计算占比（百分比，保留 2 位小数，参考 n8n 逻辑）
+            if denominator > 0:
+                ratio = (numerator / denominator) * 100
                 ratio_percent = f"{ratio:.2f}%"
             else:
                 ratio_percent = "0.00%"
             
             result_df.at[idx, new_col_name] = ratio_percent
-            print(f"  ✅ 完成：总ASIN={total_found}, 低评论ASIN={low_rating_count}, 占比={ratio_percent}")
+            print(f"  ✅ 完成：总ASIN={denominator}, 低评论ASIN={numerator}, 占比={ratio_percent}")
             
             # 添加延迟，避免请求过快（每个关键词之间延迟 2 秒）
             time.sleep(2)
