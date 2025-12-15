@@ -162,10 +162,8 @@ export default function DashboardClient({ services, user }: Props) {
           setFile(null);
           setOpen(false);
         }, 1500);
-      } else {
-        // 文本结果不自动关闭，让用户查看和下载
-        // 不重置表单，保持弹窗打开
       }
+      // 文本结果（JSON 或 text/plain）不自动关闭，让用户查看和下载
     } catch (err: any) {
       console.error("❌ FastAPI 调用失败:", err);
       setError(err?.message ?? "处理失败，请重试");
