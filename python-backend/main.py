@@ -536,14 +536,8 @@ def search_amazon_natural_products(keyword: str, max_retries: int = 3) -> List[D
     返回:
     - List[Dict]: 每个元素包含 {'asin': 'B0XXX', 'ratingCount': 123} 或空列表（如果失败）
     """
-    # 优先尝试 RapidAPI 搜索
-    rapidapi_result = try_rapidapi_search(keyword)
-    if rapidapi_result:
-        print(f"  ✅ 使用 RapidAPI 获取到 {len(rapidapi_result)} 个产品")
-        return rapidapi_result
-    
-    # 如果 RapidAPI 失败，回退到爬虫方式
-    print(f"  ⚠️ RapidAPI 搜索失败，回退到爬虫方式")
+    # 直接使用爬虫方式（参考 n8n 逻辑）
+    # 注意：RapidAPI 可能没有搜索端点，所以直接使用爬虫
     url = f"https://www.amazon.com/s?k={quote(keyword)}"
     
     headers = {
@@ -593,30 +587,86 @@ def search_amazon_natural_products(keyword: str, max_retries: int = 3) -> List[D
                 if is_sponsored:
                     continue
                 
-                # 提取评论数（参考 n8n 逻辑：优先使用 aria-label，其次使用 >数字 ratings</a>）
-                rating_match = (
-                    re.search(r'aria-label="([\d,]+)\s+ratings?"', raw, re.IGNORECASE) or
-                    re.search(r'>\s*([\d,]+)\s+ratings?\s*</a>', raw, re.IGNORECASE)
-                )
-                
+                # 提取评论数（参考 n8n 逻辑：尝试多种模式）
                 rating_count = 0
+                
+                # 方法1：aria-label="X ratings"（最准确）
+                rating_match = re.search(r'aria-label="([\d,]+)\s+ratings?"', raw, re.IGNORECASE)
                 if rating_match:
                     try:
                         rating_count = int(rating_match.group(1).replace(',', ''))
                     except (ValueError, AttributeError):
-                        rating_count = 0
+                        pass
+                
+                # 方法2：>X ratings</a>
+                if rating_count == 0:
+                    rating_match = re.search(r'>\s*([\d,]+)\s+ratings?\s*</a>', raw, re.IGNORECASE)
+                    if rating_match:
+                        try:
+                            rating_count = int(rating_match.group(1).replace(',', ''))
+                        except (ValueError, AttributeError):
+                            pass
+                
+                # 方法3：查找 "X ratings" 或 "X reviews"（更宽松）
+                if rating_count == 0:
+                    alt_match = re.search(r'([\d,]+)\s*(?:ratings?|reviews?)', raw, re.IGNORECASE)
+                    if alt_match:
+                        try:
+                            rating_count = int(alt_match.group(1).replace(',', ''))
+                        except (ValueError, AttributeError):
+                            pass
+                
+                # 方法4：查找 data-rating-count 属性
+                if rating_count == 0:
+                    attr_match = re.search(r'data-rating-count="([\d,]+)"', raw, re.IGNORECASE)
+                    if attr_match:
+                        try:
+                            rating_count = int(attr_match.group(1).replace(',', ''))
+                        except (ValueError, AttributeError):
+                            pass
+                
+                # 方法5：查找 span 中的数字模式（更宽松）
+                if rating_count == 0:
+                    # 查找类似 "1,234" 这样的数字，后面跟着 ratings/reviews
+                    number_match = re.search(r'([\d]{1,3}(?:,\d{3})*)\s*(?:ratings?|reviews?)', raw, re.IGNORECASE)
+                    if number_match:
+                        try:
+                            rating_count = int(number_match.group(1).replace(',', ''))
+                        except (ValueError, AttributeError):
+                            pass
+                
+                # 如果还是没找到，尝试查找任何包含数字和 ratings 的文本
+                if rating_count == 0:
+                    # 更宽松的匹配：任何数字后跟 ratings/reviews
+                    loose_match = re.search(r'(\d+(?:,\d+)*)\s*(?:ratings?|reviews?)', raw, re.IGNORECASE)
+                    if loose_match:
+                        try:
+                            rating_count = int(loose_match.group(1).replace(',', ''))
+                        except (ValueError, AttributeError):
+                            pass
                 
                 items.append({
                     'asin': asin,
                     'ratingCount': rating_count
                 })
+                
+                # 调试：打印前几个产品的信息
+                if len(items) <= 3:
+                    print(f"    📌 ASIN: {asin}, 评论数: {rating_count}")
             
             # 如果找到了产品，返回结果
             if items:
                 print(f"  ✅ 找到 {len(items)} 个自然位产品")
+                print(f"  📊 评论数统计: 最小={min(p['ratingCount'] for p in items)}, 最大={max(p['ratingCount'] for p in items)}, 平均={sum(p['ratingCount'] for p in items) / len(items):.1f}")
                 return items
             else:
                 print(f"  ⚠️ 未找到任何产品")
+                # 调试：检查是否是因为所有结果都是广告
+                sponsored_count = 0
+                for raw in blocks[:10]:  # 只检查前10个块
+                    if re.search(r'sp-sponsored-result|AdHolder|SponsoredAd|aria-label="Sponsored"|>Sponsored<', raw, re.IGNORECASE):
+                        sponsored_count += 1
+                print(f"  🔍 调试信息: 前10个块中有 {sponsored_count} 个广告位")
                 return []
             
         except requests.exceptions.RequestException as e:
@@ -851,8 +901,17 @@ def calculate_asin_ratio(df: pd.DataFrame) -> pd.DataFrame:
             # 注意：search_amazon_natural_products 已经过滤了大部分广告，这里保留所有
             filtered = products  # 已经过滤过了
             
+            # 调试：打印产品信息
+            print(f"  📊 获取到 {len(filtered)} 个自然位产品")
+            if len(filtered) > 0:
+                rating_counts = [p['ratingCount'] for p in filtered]
+                print(f"  📊 评论数范围: 最小={min(rating_counts)}, 最大={max(rating_counts)}, 平均={sum(rating_counts)/len(rating_counts):.1f}")
+                print(f"  📊 评论数详情（前5个）: {[p['ratingCount'] for p in filtered[:5]]}")
+            
             # Step 2️⃣ 找出评论数低于 50 的自然位（参考 n8n 逻辑）
             low_ratings = [p for p in filtered if p['ratingCount'] < 50]
+            
+            print(f"  📊 评论数 < 50 的产品数: {len(low_ratings)}")
             
             # Step 3️⃣ 计算占比（参考 n8n 逻辑）
             # 分子：低评论数（<50）的自然位产品数量
