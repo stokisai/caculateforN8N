@@ -18,6 +18,10 @@ from urllib.parse import quote
 # --- 配置部分 ---
 app = FastAPI(title="Excel Processing API", version="1.0.0")
 
+# RapidAPI 配置
+RAPIDAPI_KEY = "a28a42a0a7mshddbb4f5e053ac79p10bb74jsn713f074877fc"
+RAPIDAPI_HOST = "realtime-amazon-data.p.rapidapi.com"  # 注意：你提供的 host 是 realtime（没有连字符）
+
 # 允许跨域请求（这样你的前端才能调这个接口）
 app.add_middleware(
     CORSMiddleware,
@@ -461,10 +465,69 @@ def calculate_roi(df: pd.DataFrame):
     return report
 
 
+def get_product_reviews_count(asin: str, max_retries: int = 2) -> int:
+    """
+    使用 RapidAPI 获取产品的评论数
+    
+    参数:
+    - asin: 产品 ASIN
+    - max_retries: 最大重试次数
+    
+    返回:
+    - int: 评论数，如果失败返回 0
+    """
+    url = f"https://{RAPIDAPI_HOST}/top-product-reviews"
+    params = {
+        'asin': asin,
+        'country': 'US'
+    }
+    headers = {
+        'x-rapidapi-host': RAPIDAPI_HOST,
+        'x-rapidapi-key': RAPIDAPI_KEY
+    }
+    
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # 从 API 响应中提取评论数
+            # 根据 RapidAPI 的响应格式，可能需要调整这里的解析逻辑
+            # 通常评论数可能在 data['reviews'] 的长度，或者 data['total_reviews'] 等字段
+            if 'data' in data and isinstance(data['data'], list):
+                # 如果返回的是评论列表，使用列表长度
+                review_count = len(data['data'])
+            elif 'total_reviews' in data:
+                review_count = int(data['total_reviews'])
+            elif 'reviews' in data and isinstance(data['reviews'], list):
+                review_count = len(data['reviews'])
+            elif 'rating_count' in data:
+                review_count = int(data['rating_count'])
+            else:
+                # 尝试从响应中查找评论数字段
+                review_count = 0
+                # 可以添加更多解析逻辑
+            
+            return review_count
+            
+        except requests.exceptions.RequestException as e:
+            print(f"  ⚠️ 获取 ASIN {asin} 评论数失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(0.5)  # 短暂延迟后重试
+        except Exception as e:
+            print(f"  ⚠️ 解析 ASIN {asin} 评论数失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(0.5)
+    
+    return 0
+
+
 def search_amazon_natural_products(keyword: str, max_retries: int = 3) -> List[Dict[str, any]]:
     """
     在 Amazon 美国站搜索关键词，获取首页自然位 ASIN 及其评论数
-    参考 n8n 逻辑：使用正则表达式切分 HTML 块并解析
+    优先尝试 RapidAPI，如果失败则使用爬虫方式（参考 n8n 逻辑）
     
     参数:
     - keyword: 搜索关键词
@@ -473,12 +536,21 @@ def search_amazon_natural_products(keyword: str, max_retries: int = 3) -> List[D
     返回:
     - List[Dict]: 每个元素包含 {'asin': 'B0XXX', 'ratingCount': 123} 或空列表（如果失败）
     """
+    # 优先尝试 RapidAPI 搜索
+    rapidapi_result = try_rapidapi_search(keyword)
+    if rapidapi_result:
+        print(f"  ✅ 使用 RapidAPI 获取到 {len(rapidapi_result)} 个产品")
+        return rapidapi_result
+    
+    # 如果 RapidAPI 失败，回退到爬虫方式
+    print(f"  ⚠️ RapidAPI 搜索失败，回退到爬虫方式")
     url = f"https://www.amazon.com/s?k={quote(keyword)}"
     
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.amazon.com/',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
         'Accept-Encoding': 'gzip, deflate',
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
@@ -490,7 +562,7 @@ def search_amazon_natural_products(keyword: str, max_retries: int = 3) -> List[D
             if attempt > 0:
                 time.sleep(2 ** attempt)  # 指数退避：2秒、4秒、8秒
             
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.get(url, headers=headers, timeout=30)
             response.raise_for_status()
             
             # 获取 HTML 文本（参考 n8n 逻辑）
@@ -556,6 +628,166 @@ def search_amazon_natural_products(keyword: str, max_retries: int = 3) -> List[D
             print(f"⚠️ 解析 Amazon 搜索结果失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
             if attempt == max_retries - 1:
                 print(f"❌ 无法解析关键词 '{keyword}' 的搜索结果")
+                import traceback
+                traceback.print_exc()
+                return []
+    
+    return []
+
+
+def search_amazon_products_by_keyword_rapidapi(keyword: str, max_retries: int = 2) -> List[str]:
+    """
+    使用 RapidAPI 搜索关键词，获取首页自然位 ASIN 列表
+    
+    参数:
+    - keyword: 搜索关键词
+    - max_retries: 最大重试次数
+    
+    返回:
+    - List[str]: ASIN 列表，如果失败返回空列表
+    """
+    # RapidAPI 的搜索端点
+    # 注意：如果端点不对，请修改这里的 URL
+    # 常见的端点可能是：/search-products, /product-search, /search 等
+    url = f"https://{RAPIDAPI_HOST}/search-products"
+    params = {
+        'query': keyword,
+        'country': 'US',
+        'page': 1,
+        'page_size': 20  # 获取首页结果（通常 16-20 个）
+    }
+    headers = {
+        'x-rapidapi-host': RAPIDAPI_HOST,
+        'x-rapidapi-key': RAPIDAPI_KEY
+    }
+    
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # 从 API 响应中提取 ASIN 列表
+            # 根据 RapidAPI 的响应格式，可能需要调整这里的解析逻辑
+            asins = []
+            
+            if 'data' in data and isinstance(data['data'], list):
+                for item in data['data']:
+                    if 'asin' in item:
+                        asins.append(item['asin'])
+                    elif 'product_id' in item:
+                        asins.append(item['product_id'])
+            elif 'products' in data and isinstance(data['products'], list):
+                for item in data['products']:
+                    if 'asin' in item:
+                        asins.append(item['asin'])
+                    elif 'product_id' in item:
+                        asins.append(item['product_id'])
+            elif 'results' in data and isinstance(data['results'], list):
+                for item in data['results']:
+                    if 'asin' in item:
+                        asins.append(item['asin'])
+                    elif 'product_id' in item:
+                        asins.append(item['product_id'])
+            
+            # 过滤掉广告位（如果 API 返回了 is_sponsored 字段）
+            # 注意：RapidAPI 可能不区分广告和自然位，这里保留所有结果
+            # 如果 API 提供了 is_sponsored 字段，可以在这里过滤
+            
+            if asins:
+                print(f"  ✅ 找到 {len(asins)} 个产品 ASIN")
+                return asins
+            else:
+                print(f"  ⚠️ 未找到任何产品 ASIN")
+                return []
+            
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️ RapidAPI 搜索请求失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(1)
+        except Exception as e:
+            print(f"⚠️ 解析 RapidAPI 搜索结果失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(1)
+            import traceback
+            traceback.print_exc()
+    
+    return []
+
+
+# 注意：以下函数已废弃，保留纯爬虫版本（search_amazon_natural_products）
+# 因为 RapidAPI 可能没有搜索端点，且无法区分广告位
+    """
+    使用爬虫搜索关键词，获取首页自然位 ASIN 列表（排除广告）
+    参考 n8n 逻辑：使用正则表达式切分 HTML 块并解析
+    
+    参数:
+    - keyword: 搜索关键词
+    - max_retries: 最大重试次数
+    
+    返回:
+    - List[str]: ASIN 列表，如果失败返回空列表
+    """
+    url = f"https://www.amazon.com/s?k={quote(keyword)}"
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.amazon.com/',
+    }
+    
+    for attempt in range(max_retries):
+        try:
+            if attempt > 0:
+                time.sleep(1)  # 重试时延迟
+            
+            response = requests.get(url, headers=headers, timeout=15)
+            response.raise_for_status()
+            
+            # 获取 HTML 文本（参考 n8n 逻辑）
+            html = response.text
+            
+            # Step 1️⃣：切分搜索结果块（参考 n8n 逻辑）
+            blocks = re.split(r'<div[^>]+data-component-type="s-search-result"[^>]*>', html, flags=re.IGNORECASE)
+            blocks = blocks[1:]  # 跳过第一个空块
+            
+            asins = []
+            
+            # Step 2️⃣：循环解析 ASIN（参考 n8n 逻辑）
+            for raw in blocks:
+                # 提取 ASIN（10位字母数字）
+                asin_match = re.search(r'data-asin="([A-Z0-9]{10})"', raw, re.IGNORECASE)
+                if not asin_match:
+                    continue
+                
+                asin = asin_match.group(1)
+                
+                # 跳过广告（参考 n8n 逻辑：检测多个广告标识）
+                is_sponsored = bool(re.search(
+                    r'sp-sponsored-result|AdHolder|SponsoredAd|aria-label="Sponsored"|>Sponsored<',
+                    raw,
+                    re.IGNORECASE
+                ))
+                if is_sponsored:
+                    continue
+                
+                asins.append(asin)
+            
+            if asins:
+                print(f"  ✅ 找到 {len(asins)} 个自然位 ASIN")
+                return asins
+            else:
+                print(f"  ⚠️ 未找到任何自然位 ASIN")
+                return []
+            
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️ Amazon 搜索请求失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt == max_retries - 1:
+                return []
+        except Exception as e:
+            print(f"⚠️ 解析 Amazon 搜索结果失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt == max_retries - 1:
                 import traceback
                 traceback.print_exc()
                 return []
