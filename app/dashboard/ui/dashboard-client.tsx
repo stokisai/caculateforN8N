@@ -29,6 +29,7 @@ export default function DashboardClient({ services, user }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [resultText, setResultText] = useState<string | null>(null);  // 存储文本结果内容
 
   const requiresText = selected?.input_type === "text" || selected?.input_type === "both";
   const requiresFile = selected?.input_type === "file" || selected?.input_type === "both";
@@ -40,6 +41,8 @@ export default function DashboardClient({ services, user }: Props) {
     setOpen(false);
     setLoading(false);
     setError(null);
+    setSuccess(null);
+    setResultText(null);
   };
 
   const onSubmitTask = async (e: React.FormEvent) => {
@@ -124,9 +127,16 @@ export default function DashboardClient({ services, user }: Props) {
         const data = await response.json();
         console.log("📥 FastAPI JSON 响应:", data);
         const resultText = data.message || data.result || JSON.stringify(data, null, 2);
-        setSuccess(resultText);
+        setResultText(resultText);
+        setSuccess("处理完成");
+      } else if (contentType.includes("text/plain")) {
+        // 文本文件响应（.txt）- 读取内容并显示
+        const text = await response.text();
+        console.log("📥 FastAPI 文本响应:", text);
+        setResultText(text);
+        setSuccess("处理完成");
       } else {
-        // 文件响应（如 Excel）
+        // 其他文件响应（如 Excel）- 直接下载
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -146,12 +156,16 @@ export default function DashboardClient({ services, user }: Props) {
         window.URL.revokeObjectURL(url);
 
         setSuccess("文件已下载！");
+        // Excel 文件下载后自动关闭
+        setTimeout(() => {
+          setInputText("");
+          setFile(null);
+          setOpen(false);
+        }, 1500);
+      } else {
+        // 文本结果不自动关闭，让用户查看和下载
+        // 不重置表单，保持弹窗打开
       }
-
-      // 重置表单
-      setInputText("");
-      setFile(null);
-      setTimeout(() => setOpen(false), 1500);
     } catch (err: any) {
       console.error("❌ FastAPI 调用失败:", err);
       setError(err?.message ?? "处理失败，请重试");
@@ -341,6 +355,33 @@ export default function DashboardClient({ services, user }: Props) {
               {success && (
                 <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
                   {success}
+                </div>
+              )}
+              
+              {resultText && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-slate-900">分析结果</h3>
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([resultText], { type: 'text/plain; charset=utf-8' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `分析报告_${Date.now()}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(url);
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      下载 .txt 文件
+                    </button>
+                  </div>
+                  <pre className="whitespace-pre-wrap break-words text-sm text-slate-700 font-mono">
+                    {resultText}
+                  </pre>
                 </div>
               )}
 
