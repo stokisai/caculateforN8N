@@ -92,7 +92,6 @@ export default function DashboardClient({ services, user }: Props) {
 
       const data = await response.json();
       console.log("📊 任务状态响应:", data);
-      console.log("📊 设置 jobStatus:", data);
       setJobStatus(data);
 
       // 更新进度文本
@@ -284,47 +283,41 @@ export default function DashboardClient({ services, user }: Props) {
         const data = await response.json();
         console.log("📥 FastAPI JSON 响应:", data);
         
-        // 检查是否是社媒选品法任务（返回了 job_id）
+        // ✅ 修复 A：检查是否是社媒选品法任务（返回了 job_id）
         // 检查方式：1) 有 job_id 字段，或 2) message 中包含 "Job ID:" 或 "job_id"
         const detectedJobId = data.job_id || 
           (data.message?.match(/Job ID:\s*([a-f0-9-]+)/i)?.[1]) ||
           (data.message?.match(/job_id[:\s]+([a-f0-9-]+)/i)?.[1]);
         
-        // 检查是否是社媒选品法服务：通过 title 或 id
-        const isSocialMediaService = 
-          selected.id === "7b83cf63-0ad0-4c11-8dc5-6d8c242fbfe6" ||
-          selected.title?.includes("社媒选品法");
-        
         console.log("🔍 检测任务类型:", {
           hasJobId: !!data.job_id,
           detectedJobId,
-          isSocialMediaService,
           selectedId: selected.id,
           selectedTitle: selected.title,
-          message: data.message,
-          fullData: data
         });
         
-        // 如果有 job_id，就启动轮询（不严格检查 service_id，因为可能不同环境 ID 不同）
+        // ✅ 修复 A：如果有 job_id，就启动轮询（自动轮询进度）
         if (detectedJobId) {
           console.log("✅ 检测到 job_id，启动轮询:", detectedJobId);
-          // 社媒选品法：启动进度轮询
+          
+          // 设置状态
           setJobId(detectedJobId);
           setResultText(`任务已创建，Job ID: ${detectedJobId}\n正在处理中，请稍候...`);
           setSuccess("任务已创建");
           
-          // 开始轮询任务状态
-          console.log("🚀 启动轮询，Job ID:", detectedJobId, "Base URL:", fastApiUrl);
-          try {
-            startJobPolling(detectedJobId, fastApiUrl);
-            console.log("✅ 轮询函数已调用");
-          } catch (err) {
-            console.error("❌ 启动轮询失败:", err);
-            setError("启动进度查询失败: " + (err as Error).message);
-          }
+          // ⚠️ 重要：使用 setTimeout 确保状态更新后再启动轮询
+          setTimeout(() => {
+            console.log("🚀 启动轮询，Job ID:", detectedJobId, "Base URL:", fastApiUrl);
+            try {
+              startJobPolling(detectedJobId, fastApiUrl);
+              console.log("✅ 轮询函数已调用");
+            } catch (err) {
+              console.error("❌ 启动轮询失败:", err);
+              setError("启动进度查询失败: " + (err as Error).message);
+            }
+          }, 100);
         } else {
           console.log("⚠️ 未检测到 job_id，使用普通响应处理");
-          console.log("数据内容:", data);
           // 其他服务的普通 JSON 响应
           const resultText = data.message || data.result || JSON.stringify(data, null, 2);
           setResultText(resultText);
@@ -403,16 +396,7 @@ export default function DashboardClient({ services, user }: Props) {
       <main className="mx-auto max-w-6xl px-4 pb-16">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((service) => {
-            // 🔍 调试日志：检查每个 service 的数据完整性
-            console.log("🔍 SERVICE DATA:", {
-              id: service.id,
-              title: service.title,
-              webhook_url: service.webhook_url,
-              input_type: service.input_type,
-              image_url: service.image_url,
-              has_webhook: !!service.webhook_url,
-              has_input_type: !!service.input_type,
-            });
+            // 移除调试日志，避免重复打印（性能优化）
 
             return (
               <article
