@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 import pandas as pd
@@ -14,6 +14,11 @@ import time
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote
+import asyncio
+import aiohttp
+from datetime import datetime
+import uuid
+import base64
 
 # --- 配置部分 ---
 app = FastAPI(title="Excel Processing API", version="1.0.0")
@@ -45,21 +50,57 @@ if SUPABASE_URL and SUPABASE_KEY:
 else:
     print("⚠️ 警告: 环境变量 SUPABASE_URL 或 SUPABASE_KEY 未设置")
 
+# 社媒选品法服务配置（从环境变量读取）
+SERP_API_KEY = os.getenv("SERP_API_KEY", "081c24883966800829defaacc9226d81832f54fbeb82b82bda1f5c8a9d01df40")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+SERP_API_URL = "https://serpapi.com/search"
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+REFERENCE_IMAGE_URL = "https://m.media-amazon.com/images/I/61HVDJy8R4L._SL1500_.jpg"
+
+# 任务存储（生产环境应使用 Redis 或数据库）
+job_storage: Dict[str, Dict] = {}
+
 # --- 核心逻辑 ---
 @app.post("/process")
 async def process_excel(
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
     service_id: Optional[str] = Form(None),
     input_text: Optional[str] = Form(None)
 ):
     """
-    处理上传的 Excel/ZIP 文件
+    处理上传的 Excel/ZIP 文件或文本输入
     
     参数:
-    - file: 上传的文件（支持 .xlsx, .xls, .zip）
+    - file: 上传的文件（支持 .xlsx, .xls, .zip），对于文本输入服务可为空
     - service_id: 可选的服务ID（用于记录）
-    - input_text: 可选的文本输入
+    - input_text: 可选的文本输入（对于文本输入服务必需）
     """
+    # 检查服务类型：如果是"社媒选品法"，只需要 input_text，不需要 file
+    if service_id == "7b83cf63-0ad0-4c11-8dc5-6d8c242fbfe6":
+        if not input_text or not input_text.strip():
+            raise HTTPException(status_code=400, detail="社媒选品法服务需要提供关键词（input_text）")
+        # 直接调用异步任务处理逻辑
+        job_id = str(uuid.uuid4())
+        job_storage[job_id] = {
+            "status": "queued",
+            "keyword": input_text.strip(),
+            "progress": 0.0,
+            "sections": [],
+            "created_at": datetime.now().isoformat(),
+            "artifacts": {}
+        }
+        # 启动后台任务
+        asyncio.create_task(execute_research_job(job_id, input_text.strip()))
+        return JSONResponse({
+            "message": f"任务已创建，Job ID: {job_id}。请使用 GET /api/jobs/{job_id} 查询进度。",
+            "job_id": job_id
+        })
+    
+    # 对于其他服务，需要文件
+    if not file:
+        raise HTTPException(status_code=400, detail="此服务需要上传文件")
+    
     # ✅ 修复：安全处理文件名（可能包含非 ASCII 字符）
     original_filename = file.filename or "uploaded_file"
     try:
@@ -214,6 +255,8 @@ def process_dataframe(df: pd.DataFrame, service_id: Optional[str], input_text: O
     elif service_id == "65bb6f50-5087-488e-8f1b-350d4ed9fe00":  # 计算投产比
         # ✅ 计算投产比逻辑（返回文本报告）
         return calculate_roi(df)
+    
+    # 注意：社媒选品法服务（7b83cf63-0ad0-4c11-8dc5-6d8c242fbfe6）已在 /process 端点开始处处理，不会到达这里
         
     else:
         # 默认处理
@@ -1000,4 +1043,926 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "supabase_connected": supabase is not None}
+
+
+# ============================================
+# 社媒选品法服务 API 端点
+# ============================================
+
+@app.post("/api/jobs")
+async def create_research_job(
+    keyword: str = Form(...),
+    service_id: Optional[str] = Form(None)
+):
+    """
+    创建市场调研任务
+    
+    参数:
+    - keyword: 调研关键词
+    - service_id: 服务ID（可选）
+    """
+    job_id = str(uuid.uuid4())
+    job_storage[job_id] = {
+        "job_id": job_id,
+        "status": "queued",
+        "keyword": keyword.strip(),
+        "progress": 0.0,
+        "sections": [{"title": f"章节{i+1}", "state": "pending"} for i in range(18)],
+        "created_at": datetime.now().isoformat(),
+        "artifacts": {
+            "report_url": None,
+            "image_url": None
+        }
+    }
+    
+    # 启动后台任务（使用 asyncio 在后台执行）
+    asyncio.create_task(execute_research_job(job_id, keyword.strip()))
+    
+    return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/api/jobs/{job_id}")
+async def get_job_status(job_id: str):
+    """
+    查询任务进度
+    """
+    if job_id not in job_storage:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    job = job_storage[job_id]
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        "progress": job["progress"],
+        "sections": job["sections"],
+        "artifacts": job["artifacts"]
+    }
+
+
+@app.get("/api/jobs/{job_id}/report")
+async def download_report(job_id: str):
+    """
+    下载 Word 报告
+    """
+    if job_id not in job_storage:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    job = job_storage[job_id]
+    if "report_path" not in job.get("artifacts", {}):
+        raise HTTPException(status_code=404, detail="报告尚未生成")
+    
+    report_path = job["artifacts"]["report_path"]
+    if not os.path.exists(report_path):
+        raise HTTPException(status_code=404, detail="报告文件不存在")
+    
+    with open(report_path, "rb") as f:
+        content = f.read()
+    
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type="application/msword",
+        headers={
+            "Content-Disposition": 'attachment; filename="Market_Research_Report.doc"'
+        }
+    )
+
+
+@app.get("/api/jobs/{job_id}/image")
+async def get_image(job_id: str):
+    """
+    获取生成的图片
+    """
+    if job_id not in job_storage:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    job = job_storage[job_id]
+    if "image_path" not in job.get("artifacts", {}):
+        raise HTTPException(status_code=404, detail="图片尚未生成")
+    
+    image_path = job["artifacts"]["image_path"]
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="图片文件不存在")
+    
+    with open(image_path, "rb") as f:
+        content = f.read()
+    
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f'inline; filename="product_image.png"'
+        }
+    )
+
+
+# ============================================
+# 社媒选品法服务核心逻辑
+# ============================================
+
+# 18 个章节任务定义（与 n8n 完全一致）
+RESEARCH_TASKS = [
+    {"section_title": "调研总结", "search_query_template": "{keyword} market opportunity analysis growth drivers", "writing_instruction_template": "市场容量趋势、是否值得进入（明确结论）、细分策略、差异化路径、强相关执行建议"},
+    {"section_title": "市场容量", "search_query_template": "{keyword} market size CAGR seasonal trends", "writing_instruction_template": "市场规模、生命周期、季节性；无直接数据给替代方案（竞品推估/关联市场外推）"},
+    {"section_title": "市场竞争", "search_query_template": "{keyword} top brands competitors market share", "writing_instruction_template": "Top5 品牌：国家、成立时间、定位、核心竞争力、尝试推算份额"},
+    {"section_title": "产品认知", "search_query_template": "what is {keyword} definition types usage", "writing_instruction_template": "功能/材质/安全/场景/趋势/价格/痛点等科普"},
+    {"section_title": "产品功能", "search_query_template": "{keyword} features categories cost types", "writing_instruction_template": "主流款式功能差异；平均成本结构推估"},
+    {"section_title": "产品结构", "search_query_template": "{keyword} materials construction components", "writing_instruction_template": "BOM 拆解：材料、结构层次、核心部件、成本占比估算"},
+    {"section_title": "趋势元素", "search_query_template": "{keyword} design trends 2024 2025", "writing_instruction_template": "颜色、外观、工艺、参数、智能化趋势"},
+    {"section_title": "受众特征", "search_query_template": "{keyword} buyer persona demographics", "writing_instruction_template": "年龄、性别、职业、收入、教育、偏好、场景"},
+    {"section_title": "受众需求", "search_query_template": "{keyword} customer needs buying factors wishlist", "writing_instruction_template": "Top20 购买动机 + Top20 未满足需求，做占比排序"},
+    {"section_title": "受众购买产品", "search_query_template": "{keyword} frequently bought together accessories", "writing_instruction_template": "互补产品与同类客群常一起购买品类"},
+    {"section_title": "受众问题", "search_query_template": "{keyword} common questions faq", "writing_instruction_template": "Top20 常见问题与关注点"},
+    {"section_title": "受众反馈", "search_query_template": "{keyword} reviews complaints pain points", "writing_instruction_template": "区分正向/负向，分析解决路径"},
+    {"section_title": "产品认证", "search_query_template": "{keyword} certifications regulations", "writing_instruction_template": "出口认证（FDA/CE/RoHS 等）与费用周期（若适用）"},
+    {"section_title": "风险把控", "search_query_template": "{keyword} safety risks quality control", "writing_instruction_template": "材料/结构/功能/安全/供应链风险与对策"},
+    {"section_title": "SWOT分析", "search_query_template": "{keyword} SWOT analysis", "writing_instruction_template": "SWOT + 进入可行性评分 0–10"},
+    {"section_title": "KANO模型分析", "search_query_template": "{keyword} must have vs delighter features", "writing_instruction_template": "必备/期望/魅力/无差异/反向需求"},
+    {"section_title": "细分市场", "search_query_template": "{keyword} niche markets segments", "writing_instruction_template": "推荐 5 个细分市场，选 1 个深挖"},
+    {"section_title": "开发建议", "search_query_template": "{keyword} innovation ideas product improvement", "writing_instruction_template": "材料/外观/颜色/功能/细节五维差异化，并说明为什么用户买单"}
+]
+
+
+# ============================================
+# 步骤 1: SERP API 调用和数据清理
+# ============================================
+
+async def fetch_serp_data(search_query: str, max_retries: int = 3) -> Dict:
+    """
+    调用 SERP API 获取搜索结果
+    
+    参数:
+    - search_query: 搜索查询
+    - max_retries: 最大重试次数
+    
+    返回:
+    - SERP API 返回的 JSON 数据
+    """
+    params = {
+        "api_key": SERP_API_KEY,
+        "q": search_query,
+        "gl": "us",
+        "hl": "en"
+    }
+    
+    for attempt in range(max_retries):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(SERP_API_URL, params=params, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data
+                    elif response.status == 429:
+                        # Rate limit，等待后重试
+                        wait_time = (2 ** attempt) * 2
+                        print(f"⚠️ SERP API 限流，等待 {wait_time} 秒后重试...")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        print(f"⚠️ SERP API 返回状态码: {response.status}")
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(2 ** attempt)
+        except Exception as e:
+            print(f"⚠️ SERP API 请求失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+    
+    return {}
+
+
+def clean_serp_data(serp_data: Dict, max_results: int = 8) -> str:
+    """
+    清理 SERP 数据，生成 cleaned_context（参考 n8n 逻辑）
+    
+    参数:
+    - serp_data: SERP API 返回的原始数据
+    - max_results: 最大结果数
+    
+    返回:
+    - cleaned_context 字符串
+    """
+    def strip_html(html):
+        if not html:
+            return ''
+        return re.sub(r'<[^>]*>', '', str(html)).strip()
+    
+    cleaned_context = ''
+    
+    # 提取 organic 结果
+    organic_results = serp_data.get('organic', []) or serp_data.get('organic_results', [])
+    organic_results = organic_results[:max_results]
+    
+    for idx, result in enumerate(organic_results):
+        title = strip_html(result.get('title', ''))
+        snippet = strip_html(result.get('snippet') or result.get('description', ''))
+        date = result.get('date') or result.get('published_date', 'N/A')
+        link = result.get('link') or result.get('url', '')
+        
+        cleaned_context += f"[Source {idx + 1}]: {title}\n"
+        cleaned_context += f"Content: {snippet}\n"
+        cleaned_context += f"Date: {date}\n"
+        cleaned_context += f"Link: {link}\n\n"
+    
+    # 提取 People Also Ask
+    people_also_ask = serp_data.get('people_also_ask', []) or serp_data.get('related_questions', [])
+    if people_also_ask:
+        cleaned_context += "\n--- People Also Ask / User Concerns ---\n\n"
+        for idx, item in enumerate(people_also_ask):
+            question = strip_html(item.get('question') or item.get('title', ''))
+            answer = strip_html(item.get('answer') or item.get('snippet', ''))
+            cleaned_context += f"Q{idx + 1}: {question}\n"
+            if answer:
+                cleaned_context += f"A: {answer}\n\n"
+    
+    return cleaned_context.strip()
+
+
+# ============================================
+# 步骤 2: OpenRouter LLM 调用
+# ============================================
+
+async def generate_section_content(
+    section_title: str,
+    writing_instruction: str,
+    cleaned_context: str,
+    keyword: str,
+    max_retries: int = 3
+) -> str:
+    """
+    使用 OpenRouter 生成章节内容
+    
+    参数:
+    - section_title: 章节标题
+    - writing_instruction: 写作指令
+    - cleaned_context: 清理后的上下文
+    - keyword: 关键词
+    - max_retries: 最大重试次数
+    
+    返回:
+    - 生成的 Markdown 内容
+    """
+    RULE = f"""
+【通用写作原则 — 必须遵守】
+1. 本报告所有内容必须与关键词「{keyword}」保持直接与强关联。
+2. 禁止模型根据互联网常识、搜索结果、行业习惯自动扩展到其他品类。
+3. 若抓取到的网页信息偏离「{keyword}」，这些内容必须丢弃。
+4. 所有结论必须从「{keyword}」的特性出发，而不是同类产品或相关行业。
+5. 如无法确认某信息是否属于「{keyword}」，必须视为不相关并排除。
+"""
+    
+    system_message = f"""You are an expert Senior Product Manager and Market Analyst with 15 years of experience in Amazon product development. Your task is to write a highly granular, strategic market research report section based ONLY on the provided context.
+
+CURRENT SECTION: 【 {section_title} 】
+
+SPECIFIC INSTRUCTION FOR THIS SECTION:
+{RULE}
+{writing_instruction}
+
+GENERAL RULES:
+1. Tone: Professional, analytical, objective, and strategic. Avoid generic AI fluff.
+2. Format: Use Markdown. Use bullet points, bold text for emphasis, and structured hierarchies.
+3. Data: If the Context Data contains numbers (market size, price, percentage), cite them explicitly.
+4. Missing Data: If the search context is insufficient, do NOT hallucinate. Instead, provide professional advice on how to get that data (e.g., 'Check Jungle Scout', 'Analyze Competitor Reviews').
+5. Language: Output in CHINESE (Simplified), but keep professional terms (like 'CAGR', 'Breastmilk Cooler') in English where appropriate for clarity."""
+    
+    user_message = cleaned_context
+    
+    payload = {
+        "model": "deepseek/deepseek-chat-v3-0324",
+        "messages": [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": user_message}
+        ],
+        "temperature": 0.7
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    for attempt in range(max_retries):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    OPENROUTER_API_URL,
+                    json=payload,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=60)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        content = data.get('choices', [{}])[0].get('message', {}).get('content', '')
+                        return content
+                    elif response.status == 429:
+                        wait_time = (2 ** attempt) * 2
+                        print(f"⚠️ OpenRouter API 限流，等待 {wait_time} 秒后重试...")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        error_text = await response.text()
+                        print(f"⚠️ OpenRouter API 返回状态码: {response.status}, 错误: {error_text}")
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(2 ** attempt)
+        except Exception as e:
+            print(f"⚠️ OpenRouter API 请求失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+    
+    return ""
+
+
+async def execute_research_job(job_id: str, keyword: str):
+    """
+    执行市场调研任务（异步后台任务）
+    这是一个复杂的长时间任务，需要：
+    1. 18 个章节的 SERP 搜索和 LLM 生成
+    2. Amazon 产品搜索和详情页解析
+    3. Gemini 图片编辑
+    4. Word 报告生成
+    """
+    try:
+        job_storage[job_id]["status"] = "running"
+        job_storage[job_id]["progress"] = 0.0
+        
+        print(f"🚀 开始执行调研任务: {job_id}, 关键词: {keyword}")
+        
+        # 初始化章节状态
+        sections_data = []
+        for i, task in enumerate(RESEARCH_TASKS):
+            sections_data.append({
+                "title": task["section_title"],
+                "state": "pending",
+                "content": None
+            })
+        job_storage[job_id]["sections"] = sections_data
+        
+        # 步骤 1: 并发执行 SERP 搜索（限流 5）
+        serp_semaphore = asyncio.Semaphore(5)
+        serp_results = {}
+        
+        async def fetch_serp_with_limit(idx, task):
+            async with serp_semaphore:
+                search_query = task["search_query_template"].format(keyword=keyword)
+                print(f"  📊 [{idx+1}/18] SERP 搜索: {task['section_title']}")
+                job_storage[job_id]["sections"][idx]["state"] = "serp_fetching"
+                result = await fetch_serp_data(search_query)
+                cleaned = clean_serp_data(result)
+                serp_results[idx] = cleaned
+                job_storage[job_id]["sections"][idx]["state"] = "serp_done"
+                job_storage[job_id]["progress"] = (idx + 1) / 18 * 0.3  # SERP 占 30% 进度
+                return cleaned
+        
+        # 并发执行所有 SERP 搜索
+        serp_tasks = [fetch_serp_with_limit(i, task) for i, task in enumerate(RESEARCH_TASKS)]
+        await asyncio.gather(*serp_tasks)
+        
+        print(f"✅ SERP 搜索完成，开始 LLM 生成...")
+        
+        # 步骤 2: 并发执行 LLM 生成（限流 3，pipeline 模式）
+        llm_semaphore = asyncio.Semaphore(3)
+        llm_results = {}
+        
+        async def generate_with_limit(idx, task, cleaned_context):
+            async with llm_semaphore:
+                print(f"  ✍️ [{idx+1}/18] LLM 生成: {task['section_title']}")
+                job_storage[job_id]["sections"][idx]["state"] = "llm_writing"
+                # 构建完整的写作指令（包含 RULE）
+                keyword_rule = f"""
+【通用写作原则 — 必须遵守】
+1. 本报告所有内容必须与关键词「{keyword}」保持直接与强关联。
+2. 禁止模型根据互联网常识、搜索结果、行业习惯自动扩展到其他品类。
+3. 若抓取到的网页信息偏离「{keyword}」，这些内容必须丢弃。
+4. 所有结论必须从「{keyword}」的特性出发，而不是同类产品或相关行业。
+5. 如无法确认某信息是否属于「{keyword}」，必须视为不相关并排除。
+"""
+                writing_instruction = keyword_rule + "\n" + task["writing_instruction_template"]
+                content = await generate_section_content(
+                    task["section_title"],
+                    writing_instruction,
+                    cleaned_context,
+                    keyword
+                )
+                llm_results[idx] = content
+                job_storage[job_id]["sections"][idx]["state"] = "llm_done"
+                job_storage[job_id]["sections"][idx]["content"] = content
+                job_storage[job_id]["progress"] = 0.3 + (idx + 1) / 18 * 0.4  # LLM 占 40% 进度
+                return content
+        
+        # Pipeline: SERP 完成后立即开始 LLM（但限流）
+        # 这里简化处理：等待所有 SERP 完成后再开始 LLM
+        llm_tasks = [
+            generate_with_limit(i, task, serp_results[i])
+            for i, task in enumerate(RESEARCH_TASKS)
+        ]
+        await asyncio.gather(*llm_tasks)
+        
+        print(f"✅ LLM 生成完成，开始生成报告...")
+        
+        # 步骤 3: 生成 Word 报告
+        job_storage[job_id]["progress"] = 0.7
+        report_path = await generate_word_report(job_id, keyword, llm_results)
+        job_storage[job_id]["artifacts"]["report_path"] = report_path
+        job_storage[job_id]["progress"] = 0.8
+        
+        # 步骤 4: 提取开发建议并生成视觉 prompt
+        dev_suggestion = extract_dev_suggestion(llm_results)
+        visual_prompt = await generate_visual_prompt(dev_suggestion)
+        job_storage[job_id]["artifacts"]["dev_suggestion"] = dev_suggestion
+        job_storage[job_id]["artifacts"]["visual_prompt"] = visual_prompt
+        
+        # 步骤 5: Amazon 搜索和详情页解析
+        amazon_products = await fetch_amazon_products(keyword)
+        job_storage[job_id]["artifacts"]["amazon_products"] = amazon_products
+        
+        # 步骤 6: Gemini 图片编辑
+        if visual_prompt and amazon_products:
+            image_path = await generate_product_image(visual_prompt, amazon_products)
+            job_storage[job_id]["artifacts"]["image_path"] = image_path
+        
+        job_storage[job_id]["status"] = "done"
+        job_storage[job_id]["progress"] = 1.0
+        print(f"✅ 调研任务完成: {job_id}")
+        
+    except Exception as e:
+        job_storage[job_id]["status"] = "failed"
+        job_storage[job_id]["error"] = str(e)
+        print(f"❌ 调研任务失败: {job_id}, 错误: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+
+# ============================================
+# 步骤 3: Word 报告生成
+# ============================================
+
+def markdown_to_html(text: str) -> str:
+    """简单的 Markdown 转 HTML"""
+    if not text:
+        return ""
+    
+    html = text
+    # 转义 HTML 特殊字符
+    html = html.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    # 标题
+    html = re.sub(r'^### (.*$)', r'<h3>\1</h3>', html, flags=re.MULTILINE)
+    html = re.sub(r'^## (.*$)', r'<h2>\1</h2>', html, flags=re.MULTILINE)
+    html = re.sub(r'^# (.*$)', r'<h1>\1</h1>', html, flags=re.MULTILINE)
+    # 加粗
+    html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html)
+    # 列表
+    html = re.sub(r'^- (.*$)', r'<li>\1</li>', html, flags=re.MULTILINE)
+    # 换行
+    html = html.replace('\n', '<br>')
+    
+    return html
+
+
+async def generate_word_report(job_id: str, keyword: str, sections_content: Dict[int, str]) -> str:
+    """
+    生成 Word 报告（HTML 伪装为 .doc）
+    
+    返回:
+    - 报告文件路径
+    """
+    html_content = f"""
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset='utf-8'><title>Market Research Report</title>
+<style>
+    body {{ font-family: 'Microsoft YaHei', sans-serif; line-height: 1.6; }}
+    h1 {{ color: #2E75B6; border-bottom: 2px solid #2E75B6; padding-bottom: 10px; }}
+    h2 {{ color: #1F4E79; margin-top: 20px; background-color: #F2F2F2; padding: 5px; }}
+    h3 {{ color: #333; }}
+    strong {{ color: #C00000; }}
+    p {{ margin-bottom: 10px; }}
+    li {{ margin-bottom: 5px; }}
+    hr {{ border: 0; border-top: 1px solid #ccc; margin: 30px 0; }}
+</style>
+</head><body>
+<h1>全网产品深度调研报告</h1>
+<p>关键词: {keyword}</p>
+<p>Generated by AI Agent</p>
+<hr>
+"""
+    
+    # 按顺序添加所有章节
+    for i, task in enumerate(RESEARCH_TASKS):
+        content = sections_content.get(i, "")
+        if content:
+            html_content += f"<h2>{task['section_title']}</h2>"
+            html_content += markdown_to_html(content)
+            html_content += "<hr>"
+    
+    html_content += "</body></html>"
+    
+    # 保存文件
+    os.makedirs(f"/tmp/research_jobs/{job_id}", exist_ok=True)
+    report_path = f"/tmp/research_jobs/{job_id}/Market_Research_Report.doc"
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
+    
+    return report_path
+
+
+# ============================================
+# 步骤 4: 开发建议提取和视觉 prompt 生成
+# ============================================
+
+def extract_dev_suggestion(sections_content: Dict[int, str]) -> str:
+    """
+    提取"开发建议"章节内容
+    """
+    # 优先查找标题包含"开发建议"的章节
+    for i, task in enumerate(RESEARCH_TASKS):
+        if "开发建议" in task["section_title"]:
+            return sections_content.get(i, "")
+    
+    # 其次查找内容包含"【开发建议】"的章节
+    for i, content in sections_content.items():
+        if "【开发建议】" in content:
+            return content
+    
+    # 最后取最后一章（通常是开发建议）
+    if sections_content:
+        last_idx = max(sections_content.keys())
+        return sections_content.get(last_idx, "")
+    
+    return ""
+
+
+async def generate_visual_prompt(dev_suggestion: str, max_retries: int = 3) -> str:
+    """
+    生成英文视觉 prompt（参考 n8n 逻辑）
+    """
+    system_message = """You are an expert AI Product Design Prompter for Stable Diffusion (Flux/SDXL). 
+
+### Your Task:
+Transform the user's "Development Suggestions" (text) into a set of **visual keywords (English)** for an AI Image Generator.
+
+### Output Requirement:
+Output **ONLY** the English Prompt string. Do not output explanations.
+
+### Output Format (Strictly follow this structure):
+(Best quality, 8k, masterpiece, product photography), [Subject: Smart Breastmilk Cooler], [Key Features: LED screen, magnetic latch, modular], [Material: Matte plastic, Cooling Gel], [Colors], [Lighting: Studio soft box], [Angle: Front view or Open view]"""
+    
+    payload = {
+        "model": "deepseek/deepseek-chat-v3-0324",
+        "messages": [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": dev_suggestion}
+        ],
+        "temperature": 0.7
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    for attempt in range(max_retries):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    OPENROUTER_API_URL,
+                    json=payload,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=60)
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        prompt = data.get('choices', [{}])[0].get('message', {}).get('content', '').strip()
+                        return prompt
+                    elif response.status == 429:
+                        await asyncio.sleep((2 ** attempt) * 2)
+                    else:
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(2 ** attempt)
+        except Exception as e:
+            print(f"⚠️ 视觉 prompt 生成失败 (尝试 {attempt + 1}/{max_retries}): {str(e)}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+    
+    return ""
+
+
+# ============================================
+# 步骤 5: Amazon 搜索和详情页解析
+# ============================================
+
+async def fetch_amazon_products(keyword: str) -> List[Dict]:
+    """
+    搜索 Amazon 并获取 Top3 自然位 ASIN，然后解析详情页
+    """
+    # Amazon 搜索
+    search_url = f"https://www.amazon.com/s?k={quote(keyword)}"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.amazon.com/',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"'
+    }
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(search_url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    # 提取 Top3 自然位 ASIN（参考 n8n 逻辑）
+                    top3_asins = extract_top3_natural_asins(html)
+                    
+                    # 并发获取详情页
+                    products = []
+                    async with asyncio.Semaphore(2):  # 限流 2
+                        for asin in top3_asins:
+                            product = await fetch_amazon_product_detail(asin)
+                            if product:
+                                products.append(product)
+                    
+                    return products
+    except Exception as e:
+        print(f"⚠️ Amazon 搜索失败: {str(e)}")
+    
+    return []
+
+
+def extract_top3_natural_asins(html: str) -> List[str]:
+    """
+    从 Amazon 搜索页提取 Top3 自然位 ASIN（参考 n8n 逻辑）
+    """
+    natural_items = []
+    
+    # 匹配 search-result 块
+    blocks = re.finditer(r'<div[^>]+data-component-type="s-search-result"[^>]*>', html, re.IGNORECASE)
+    
+    for match in blocks:
+        open_tag = match.group(0)
+        block_start = match.start()
+        block = html[block_start:block_start + 2000]
+        
+        # 必须是 listitem
+        if not re.search(r'role="listitem"', open_tag, re.IGNORECASE):
+            continue
+        
+        # 提取 ASIN
+        asin_match = re.search(r'data-asin="(B0[A-Z0-9]{9})"', open_tag, re.IGNORECASE)
+        if not asin_match:
+            continue
+        asin = asin_match.group(1)
+        
+        # 提取 index
+        index_match = re.search(r'data-index="(\d+)"', open_tag, re.IGNORECASE)
+        if not index_match:
+            continue
+        index = int(index_match.group(1))
+        
+        # 排除 Sponsored
+        if re.search(r'Sponsored|s-sponsored-label-text|puis-sponsored-label', block, re.IGNORECASE):
+            continue
+        
+        natural_items.append({"asin": asin, "index": index})
+    
+    # 排序并取 Top3
+    natural_items.sort(key=lambda x: x["index"])
+    return [item["asin"] for item in natural_items[:3]]
+
+
+async def fetch_amazon_product_detail(asin: str) -> Optional[Dict]:
+    """
+    获取 Amazon 产品详情页并解析（参考 n8n Python 代码）
+    """
+    url = f"https://www.amazon.com/dp/{asin}"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.amazon.com/',
+        'Upgrade-Insecure-Requests': '1'
+    }
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    return parse_amazon_detail_page(html, asin)
+    except Exception as e:
+        print(f"⚠️ 获取 ASIN {asin} 详情失败: {str(e)}")
+    
+    return None
+
+
+def parse_amazon_detail_page(html: str, asin: str) -> Dict:
+    """
+    解析 Amazon 详情页（参考 n8n Python 代码逻辑）
+    """
+    # 这里需要实现完整的解析逻辑（参考你提供的 Python 代码）
+    # 由于代码很长，我先实现基础版本
+    
+    def html_unescape(text):
+        if not text:
+            return text
+        replacements = {
+            "&quot;": '"', "&#34;": '"', "&apos;": "'", "&#39;": "'",
+            "&amp;": "&", "&lt;": "<", "&gt;": ">", "&nbsp;": " "
+        }
+        for k, v in replacements.items():
+            text = text.replace(k, v)
+        text = re.sub(r'&#(\d+);', lambda m: chr(int(m.group(1))), text)
+        return text
+    
+    def clean(text):
+        if not text:
+            return ""
+        text = html_unescape(text)
+        text = re.sub(r'<(style|script)[^>]*>.*?</\1>', ' ', text, flags=re.DOTALL)
+        text = re.sub(r'<[^>]+>', ' ', text)
+        text = re.sub(r'[\u200e\u200f]', '', text)
+        text = text.replace('&nbsp;', ' ')
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
+    
+    def parse_dimensions_complex(text):
+        if not text:
+            return None
+        text_lower = text.lower()
+        strict_match = re.search(r'(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)', text)
+        dims = []
+        if strict_match:
+            dims = [float(strict_match.group(1)), float(strict_match.group(2)), float(strict_match.group(3))]
+        else:
+            numbers = re.findall(r'(\d+(?:\.\d+)?)', text)
+            if len(numbers) >= 3:
+                dims = [float(numbers[0]), float(numbers[1]), float(numbers[2])]
+        
+        if len(dims) == 3:
+            try:
+                if 'cm' in text_lower or 'centimeters' in text_lower:
+                    dims = [d / 2.54 for d in dims]
+                elif 'mm' in text_lower or 'millimeters' in text_lower:
+                    dims = [d / 25.4 for d in dims]
+                return sorted(dims, reverse=True)
+            except:
+                pass
+        return None
+    
+    def extract_dimensions_and_weight_from_text(html_text):
+        clean_text = clean(html_text)
+        found_dims = None
+        found_raw_text = ""
+        found_weight = 0.0
+        found_weight_unit = ""
+        
+        keys = ["Product Dimensions", "Package Dimensions", "Item Dimensions", "Dimensions"]
+        for key in keys:
+            pattern = rf'{key}\s*[:\-]?\s*(\d+(?:\.\d+)?\s*[xX]\s*\d+(?:\.\d+)?\s*[xX]\s*\d+(?:\.\d+)?\s*[a-zA-Z]*)'
+            match = re.search(pattern, clean_text, re.IGNORECASE)
+            if match:
+                raw_val = match.group(1)
+                parsed = parse_dimensions_complex(raw_val)
+                if parsed:
+                    found_dims = parsed
+                    found_raw_text = raw_val
+                    start_pos = match.end()
+                    nearby_text = clean_text[start_pos:start_pos + 50]
+                    w_match = re.search(r'[;,\s]\s*(\d+(?:\.\d+)?)\s*(pounds?|lbs?|ounces?|oz|grams?|g|kg|kilograms?)', nearby_text, re.IGNORECASE)
+                    if w_match:
+                        found_weight = float(w_match.group(1))
+                        found_weight_unit = w_match.group(2).lower()
+                    break
+        
+        return found_dims, found_raw_text, found_weight, found_weight_unit
+    
+    def extract_weight_standalone(html_text):
+        clean_text = clean(html_text)
+        keys = ["Item Weight", "Product Weight", "Shipping Weight"]
+        for key in keys:
+            pattern = rf'{key}\s*[:\-]?\s*(\d+(?:\.\d+)?)\s*(pounds?|lbs?|ounces?|oz|grams?|g|kg|kilograms?)'
+            match = re.search(pattern, clean_text, re.IGNORECASE)
+            if match:
+                return float(match.group(1)), match.group(2).lower()
+        return 0.0, ""
+    
+    # 提取尺寸和重量
+    t_dims, t_raw_text, t_weight, t_w_unit = extract_dimensions_and_weight_from_text(html)
+    
+    if t_dims:
+        L, W, H = t_dims
+        raw_dim_text = t_raw_text
+    else:
+        L, W, H = 0.0, 0.0, 0.0
+        raw_dim_text = "NOT_FOUND_IN_TEXT"
+    
+    if t_weight > 0:
+        w_val, w_unit = t_weight, t_w_unit
+    else:
+        w_val, w_unit = extract_weight_standalone(html)
+    
+    # 提取其他信息
+    asin_match = re.search(r'<input[^>]+id="ASIN"[^>]+value="([^"]+)"', html, re.IGNORECASE)
+    extracted_asin = asin_match.group(1) if asin_match else asin
+    
+    main_image_match = re.search(r'"hiRes":"([^"]+)"', html)
+    main_image = main_image_match.group(1) if main_image_match else "IMAGE_NOT_FOUND"
+    
+    price_match = re.search(r'class="a-price-whole">\s*([\d,]+)(?:<[^>]+>)*class="a-price-fraction">\s*(\d+)', html)
+    price = 0.0
+    if price_match:
+        try:
+            price = float(f"{price_match.group(1).replace(',', '')}.{price_match.group(2)}")
+        except:
+            pass
+    
+    clean_text = clean(html)
+    bsr_match = re.search(r'#[\d,]+\s+in\s+([^(<]+?)(?:\(|$)', clean_text, re.IGNORECASE)
+    bsr_category = bsr_match.group(1).strip().replace("&", "and") if bsr_match else ""
+    bsr_category = re.sub(r'\s+', ' ', bsr_category)
+    
+    # FBA 计算
+    weight_lb = w_val
+    if "oz" in w_unit or "ounce" in w_unit:
+        weight_lb = w_val / 16
+    elif "kg" in w_unit or "kilo" in w_unit:
+        weight_lb = w_val * 2.20462
+    elif "g" in w_unit and "k" not in w_unit:
+        weight_lb = w_val * 0.00220462
+    
+    dim_weight = (L * W * H) / 139
+    ship_weight = max(weight_lb, dim_weight)
+    girth = 2 * (W + H)
+    
+    fba_tier = "未分类"
+    if ship_weight == 0 and L == 0:
+        fba_tier = "数据缺失"
+    elif weight_lb <= 1 and L <= 15 and W <= 12 and H <= 0.75:
+        fba_tier = "小号标准尺寸"
+    elif weight_lb <= 20 and L <= 18 and W <= 14 and H <= 8:
+        fba_tier = "大号标准尺寸"
+    elif weight_lb <= 50 and (L + girth) <= 130:
+        fba_tier = "大号大件"
+    else:
+        fba_tier = "超大件"
+    
+    return {
+        "asin": extracted_asin,
+        "price": price,
+        "bsr_category": bsr_category,
+        "mainImage": main_image,
+        "dimensions": {"length": round(L, 2), "width": round(W, 2), "height": round(H, 2)},
+        "weights": {
+            "actual_value": w_val,
+            "actual_unit": w_unit,
+            "shippingWeightLb": round(ship_weight, 2)
+        },
+        "fba_tier": fba_tier,
+        "_debug": {
+            "raw_dim_text_found": raw_dim_text
+        }
+    }
+
+
+# ============================================
+# 步骤 6: Gemini 图片编辑
+# ============================================
+
+async def generate_product_image(visual_prompt: str, amazon_products: List[Dict]) -> Optional[str]:
+    """
+    使用 Gemini 编辑图片
+    """
+    try:
+        import google.generativeai as genai
+        
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel('gemini-1.5-pro')
+        
+        # 下载参考图片
+        async with aiohttp.ClientSession() as session:
+            async with session.get(REFERENCE_IMAGE_URL) as response:
+                if response.status == 200:
+                    reference_image_bytes = await response.read()
+                    
+                    # 构建 prompt（参考 n8n 逻辑）
+                    prompt = f"请你参考图中的产品，根据我们的subject中显示的名称，把key feature以图中的产品为基础进行作画 {visual_prompt}"
+                    
+                    # 调用 Gemini（这里需要根据实际 API 调整）
+                    # 注意：Gemini Image Edit API 可能需要不同的调用方式
+                    # 这里先返回占位符
+                    print(f"⚠️ Gemini 图片编辑功能待实现（需要确认 API 调用方式）")
+                    return None
+    except Exception as e:
+        print(f"⚠️ Gemini 图片编辑失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+    
+    return None
+
+
+# 添加 RULE 常量（用于生成章节内容）
+RULE = """
+【通用写作原则 — 必须遵守】
+1. 本报告所有内容必须与关键词保持直接与强关联。
+2. 禁止模型根据互联网常识、搜索结果、行业习惯自动扩展到其他品类。
+3. 若抓取到的网页信息偏离关键词，这些内容必须丢弃。
+4. 所有结论必须从关键词的特性出发，而不是同类产品或相关行业。
+5. 如无法确认某信息是否属于关键词，必须视为不相关并排除。
+"""
 
