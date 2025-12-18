@@ -1,0 +1,13 @@
+# 忽略前端文件
+../node_modules
+../.next
+../package.json
+../package-lock.json
+../tsconfig.json
+../next.config.ts
+../app
+../public
+../tailwind.config.ts
+../postcss.config.mjs
+../eslint.config.mjs
+
