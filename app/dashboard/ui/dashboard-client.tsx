@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
@@ -30,6 +30,9 @@ export default function DashboardClient({ services, user }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [resultText, setResultText] = useState<string | null>(null);  // 存储文本结果内容
+  const [jobId, setJobId] = useState<string | null>(null);  // 社媒选品法任务 ID
+  const [jobStatus, setJobStatus] = useState<any>(null);  // 任务状态
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);  // 轮询定时器引用
 
   const requiresText = selected?.input_type === "text" || selected?.input_type === "both";
   const requiresFile = selected?.input_type === "file" || selected?.input_type === "both";
@@ -43,7 +46,161 @@ export default function DashboardClient({ services, user }: Props) {
     setError(null);
     setSuccess(null);
     setResultText(null);
+    // 清理轮询
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    setJobId(null);
+    setJobStatus(null);
   };
+
+  // 轮询任务状态
+  const startJobPolling = (jobId: string, baseUrl: string) => {
+    console.log("🔄 startJobPolling 被调用:", { jobId, baseUrl });
+    
+    // 清除之前的轮询
+    if (pollingRef.current) {
+      console.log("🧹 清除之前的轮询");
+      clearInterval(pollingRef.current);
+    }
+
+    // 立即查询一次
+    console.log("📡 立即查询一次任务状态");
+    fetchJobStatus(jobId, baseUrl);
+
+    // 每 3 秒轮询一次
+    const interval = setInterval(() => {
+      console.log("⏰ 定时轮询任务状态");
+      fetchJobStatus(jobId, baseUrl);
+    }, 3000);
+
+    pollingRef.current = interval;
+    console.log("✅ 轮询已启动，interval ID:", interval);
+  };
+
+  // 查询任务状态
+  const fetchJobStatus = async (jobId: string, baseUrl: string) => {
+    try {
+      const apiBase = baseUrl.replace("/process", "");
+      const statusUrl = `${apiBase}/api/jobs/${jobId}`;
+      
+      const response = await fetch(statusUrl);
+      if (!response.ok) {
+        throw new Error(`查询任务状态失败: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("📊 任务状态响应:", data);
+      console.log("📊 设置 jobStatus:", data);
+      setJobStatus(data);
+
+      // 更新进度文本
+      const progressPercent = Math.round((data.progress || 0) * 100);
+      const completedSections = data.sections?.filter((s: any) => s.state === "llm_done").length || 0;
+      const totalSections = data.sections?.length || 18;
+      
+      let statusText = `任务进度: ${progressPercent}%\n`;
+      statusText += `已完成章节: ${completedSections}/${totalSections}\n\n`;
+      statusText += `状态: ${data.status}\n`;
+      
+      if (data.sections && data.sections.length > 0) {
+        statusText += `\n章节详情:\n`;
+        data.sections.forEach((section: any, index: number) => {
+          const stateEmojiMap: Record<string, string> = {
+            pending: "⏳",
+            serp_fetching: "🔍",
+            serp_done: "✅",
+            llm_writing: "✍️",
+            llm_done: "✅",
+            failed: "❌"
+          };
+          const stateEmoji = stateEmojiMap[section.state] || "⏳";
+          statusText += `${stateEmoji} ${section.title || `章节${index + 1}`}: ${section.state}\n`;
+        });
+      }
+
+      setResultText(statusText);
+
+      // 如果任务完成或失败，停止轮询
+      if (data.status === "done" || data.status === "failed") {
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+
+        if (data.status === "done") {
+          setSuccess("任务完成！可以下载报告了");
+        } else {
+          setError(data.error || "任务失败");
+        }
+      }
+    } catch (err: any) {
+      console.error("❌ 查询任务状态失败:", err);
+      // 不显示错误，继续轮询
+    }
+  };
+
+  // 下载报告
+  const downloadReport = async (jobId: string, baseUrl: string) => {
+    try {
+      const apiBase = baseUrl.replace("/process", "");
+      const reportUrl = `${apiBase}/api/jobs/${jobId}/report`;
+      
+      const response = await fetch(reportUrl);
+      if (!response.ok) {
+        throw new Error(`下载报告失败: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Market_Research_Report_${jobId}.doc`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("❌ 下载报告失败:", err);
+      setError(err?.message || "下载报告失败");
+    }
+  };
+
+  // 下载图片
+  const downloadImage = async (jobId: string, baseUrl: string) => {
+    try {
+      const apiBase = baseUrl.replace("/process", "");
+      const imageUrl = `${apiBase}/api/jobs/${jobId}/image`;
+      
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`下载图片失败: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Product_Image_${jobId}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("❌ 下载图片失败:", err);
+      setError(err?.message || "下载图片失败");
+    }
+  };
+
+  // 组件卸载时清理轮询
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, []);
 
   const onSubmitTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,9 +283,53 @@ export default function DashboardClient({ services, user }: Props) {
         // JSON 响应
         const data = await response.json();
         console.log("📥 FastAPI JSON 响应:", data);
-        const resultText = data.message || data.result || JSON.stringify(data, null, 2);
-        setResultText(resultText);
-        setSuccess("处理完成");
+        
+        // 检查是否是社媒选品法任务（返回了 job_id）
+        // 检查方式：1) 有 job_id 字段，或 2) message 中包含 "Job ID:" 或 "job_id"
+        const detectedJobId = data.job_id || 
+          (data.message?.match(/Job ID:\s*([a-f0-9-]+)/i)?.[1]) ||
+          (data.message?.match(/job_id[:\s]+([a-f0-9-]+)/i)?.[1]);
+        
+        // 检查是否是社媒选品法服务：通过 title 或 id
+        const isSocialMediaService = 
+          selected.id === "7b83cf63-0ad0-4c11-8dc5-6d8c242fbfe6" ||
+          selected.title?.includes("社媒选品法");
+        
+        console.log("🔍 检测任务类型:", {
+          hasJobId: !!data.job_id,
+          detectedJobId,
+          isSocialMediaService,
+          selectedId: selected.id,
+          selectedTitle: selected.title,
+          message: data.message,
+          fullData: data
+        });
+        
+        // 如果有 job_id，就启动轮询（不严格检查 service_id，因为可能不同环境 ID 不同）
+        if (detectedJobId) {
+          console.log("✅ 检测到 job_id，启动轮询:", detectedJobId);
+          // 社媒选品法：启动进度轮询
+          setJobId(detectedJobId);
+          setResultText(`任务已创建，Job ID: ${detectedJobId}\n正在处理中，请稍候...`);
+          setSuccess("任务已创建");
+          
+          // 开始轮询任务状态
+          console.log("🚀 启动轮询，Job ID:", detectedJobId, "Base URL:", fastApiUrl);
+          try {
+            startJobPolling(detectedJobId, fastApiUrl);
+            console.log("✅ 轮询函数已调用");
+          } catch (err) {
+            console.error("❌ 启动轮询失败:", err);
+            setError("启动进度查询失败: " + (err as Error).message);
+          }
+        } else {
+          console.log("⚠️ 未检测到 job_id，使用普通响应处理");
+          console.log("数据内容:", data);
+          // 其他服务的普通 JSON 响应
+          const resultText = data.message || data.result || JSON.stringify(data, null, 2);
+          setResultText(resultText);
+          setSuccess("处理完成");
+        }
       } else if (contentType.includes("text/plain")) {
         // 文本文件响应（.txt）- 读取内容并显示
         const text = await response.text();
@@ -359,25 +560,62 @@ export default function DashboardClient({ services, user }: Props) {
               {resultText && (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-900">分析结果</h3>
-                    <button
-                      onClick={() => {
-                        const blob = new Blob([resultText], { type: 'text/plain; charset=utf-8' });
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `分析报告_${Date.now()}.txt`;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        window.URL.revokeObjectURL(url);
-                      }}
-                      className="text-xs text-blue-600 hover:text-blue-800 underline"
-                    >
-                      下载 .txt 文件
-                    </button>
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      {jobId ? "任务进度" : "分析结果"}
+                    </h3>
+                    <div className="flex gap-2">
+                      {jobId && jobStatus?.status === "done" && (
+                        <>
+                          <button
+                            onClick={() => downloadReport(jobId, selected.webhook_url)}
+                            className="text-xs text-blue-600 hover:text-blue-800 underline"
+                          >
+                            下载 Word 报告
+                          </button>
+                          {jobStatus?.artifacts?.image_path && (
+                            <button
+                              onClick={() => downloadImage(jobId, selected.webhook_url)}
+                              className="text-xs text-blue-600 hover:text-blue-800 underline"
+                            >
+                              下载图片
+                            </button>
+                          )}
+                        </>
+                      )}
+                      {!jobId && (
+                        <button
+                          onClick={() => {
+                            const blob = new Blob([resultText], { type: 'text/plain; charset=utf-8' });
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `分析报告_${Date.now()}.txt`;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            window.URL.revokeObjectURL(url);
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-800 underline"
+                        >
+                          下载 .txt 文件
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <pre className="whitespace-pre-wrap break-words text-sm text-slate-700 font-mono">
+                  {jobId && jobStatus && (
+                    <div className="mb-3">
+                      <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-blue-600 transition-all duration-300"
+                          style={{ width: `${Math.round((jobStatus.progress || 0) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        进度: {Math.round((jobStatus.progress || 0) * 100)}%
+                      </p>
+                    </div>
+                  )}
+                  <pre className="whitespace-pre-wrap break-words text-sm text-slate-700 font-mono max-h-96 overflow-y-auto">
                     {resultText}
                   </pre>
                 </div>
