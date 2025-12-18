@@ -1,3 +1,9 @@
+# 忽略备份文件
+*.backup
+*_backup.py
+main_backup.py
+main.py.backup
+
 # 忽略前端文件
 ../node_modules
 ../.next
