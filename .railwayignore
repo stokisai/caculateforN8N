@@ -1,0 +1,25 @@
+# 忽略前端文件，Railway 只部署 python-backend
+package.json
+package-lock.json
+node_modules
+.next
+app
+public
+tsconfig.json
+next.config.ts
+tailwind.config.ts
+postcss.config.mjs
+eslint.config.mjs
+.gitignore
+README.md
+ARCHITECTURE_CHANGES.md
+DEPLOYMENT.md
+GITHUB_PUSH.md
+SUPABASE_SETUP.md
+DEBUG_FILE_URL.md
+ARCHITECTURE_COMPLETE.md
+SERVICE_LOGIC_SPEC.md
+IMPLEMENTATION_STATUS.md
+update_webhook_urls_to_fastapi.sql
+railway.json
+
