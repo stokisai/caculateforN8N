@@ -33,6 +33,26 @@ export default function DashboardClient({ services, user }: Props) {
   const [jobId, setJobId] = useState<string | null>(null);  // 社媒选品法任务 ID
   const [jobStatus, setJobStatus] = useState<any>(null);  // 任务状态
   const pollingRef = useRef<NodeJS.Timeout | null>(null);  // 轮询定时器引用
+  
+  // ✅ H10 服务专用状态
+  const H10_SERVICE_ID = "a8f3c2d1-4e5b-6c7d-8e9f-0a1b2c3d4e5f";
+  const [h10Files, setH10Files] = useState<Record<string, File | null>>({
+    "H10反查总表": null,
+    "竞品1": null,
+    "竞品2": null,
+    "竞品3": null,
+    "竞品4": null,
+    "竞品5": null,
+    "竞品6": null,
+    "竞品7": null,
+    "竞品8": null,
+    "竞品9": null,
+    "竞品10": null,
+    "自身ASIN反查": null,
+    "竞对ABA热搜词反查": null,
+    "拓词基础表": null,
+  });
+  const [h10Folder, setH10Folder] = useState<FileList | null>(null);
 
   const requiresText = selected?.input_type === "text" || selected?.input_type === "both";
   const requiresFile = selected?.input_type === "file" || selected?.input_type === "both";
@@ -53,6 +73,24 @@ export default function DashboardClient({ services, user }: Props) {
     }
     setJobId(null);
     setJobStatus(null);
+    // ✅ 重置 H10 文件状态
+    setH10Files({
+      "H10反查总表": null,
+      "竞品1": null,
+      "竞品2": null,
+      "竞品3": null,
+      "竞品4": null,
+      "竞品5": null,
+      "竞品6": null,
+      "竞品7": null,
+      "竞品8": null,
+      "竞品9": null,
+      "竞品10": null,
+      "自身ASIN反查": null,
+      "竞对ABA热搜词反查": null,
+      "拓词基础表": null,
+    });
+    setH10Folder(null);
   };
 
   // 轮询任务状态
@@ -124,14 +162,17 @@ export default function DashboardClient({ services, user }: Props) {
       // 如果任务完成或失败，停止轮询
       if (data.status === "done" || data.status === "failed") {
         if (pollingRef.current) {
+          console.log("🛑 任务完成/失败，停止轮询");
           clearInterval(pollingRef.current);
           pollingRef.current = null;
         }
 
         if (data.status === "done") {
           setSuccess("任务完成！可以下载报告了");
+          setLoading(false); // ✅ 修复：任务完成时重置 loading 状态
         } else {
           setError(data.error || "任务失败");
+          setLoading(false); // ✅ 修复：任务失败时重置 loading 状态
         }
       }
     } catch (err: any) {
@@ -143,6 +184,15 @@ export default function DashboardClient({ services, user }: Props) {
   // 下载报告
   const downloadReport = async (jobId: string, baseUrl: string) => {
     try {
+      console.log("📥 开始下载报告，Job ID:", jobId);
+      
+      // ✅ 修复：确保轮询已停止
+      if (pollingRef.current) {
+        console.log("🛑 停止轮询（下载报告时）");
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      
       const apiBase = baseUrl.replace("/process", "");
       const reportUrl = `${apiBase}/api/jobs/${jobId}/report`;
       
@@ -160,6 +210,8 @@ export default function DashboardClient({ services, user }: Props) {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+      
+      console.log("✅ 报告下载完成");
     } catch (err: any) {
       console.error("❌ 下载报告失败:", err);
       setError(err?.message || "下载报告失败");
@@ -205,17 +257,38 @@ export default function DashboardClient({ services, user }: Props) {
     e.preventDefault();
     if (!selected) return;
 
+    // ✅ 修复：防止重复提交（如果已有任务在运行，不允许提交新任务）
+    if (loading) {
+      console.log("⚠️ 任务正在提交中，忽略重复提交");
+      return;
+    }
+    
+    // ✅ 修复：如果已有任务在运行，提示用户
+    if (jobId && jobStatus?.status === "running") {
+      console.log("⚠️ 已有任务正在运行，请等待完成后再提交新任务");
+      setError("已有任务正在运行，请等待完成后再提交新任务");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setSuccess(null);
 
     try {
-      // 验证输入
-      if (requiresText && !inputText.trim()) {
-        throw new Error("Please provide the required text input.");
-      }
-      if (requiresFile && !file) {
-        throw new Error("Please attach the required file.");
+      // ✅ H10 服务特殊验证
+      if (selected.id === H10_SERVICE_ID) {
+        // 检查是否至少上传了 H10反查总表
+        if (!h10Files["H10反查总表"] && (!h10Folder || h10Folder.length === 0)) {
+          throw new Error("请至少上传 H10反查总表 文件，或选择包含所有表格的文件夹");
+        }
+      } else {
+        // 其他服务的验证
+        if (requiresText && !inputText.trim()) {
+          throw new Error("Please provide the required text input.");
+        }
+        if (requiresFile && !file) {
+          throw new Error("Please attach the required file.");
+        }
       }
 
       // ✅ 新架构：直接调用 FastAPI，不经过 n8n 和 Supabase Storage
@@ -238,16 +311,63 @@ export default function DashboardClient({ services, user }: Props) {
       // 构建 FormData（multipart/form-data）
       const formData = new FormData();
       
-      // 如果有文件，直接添加到 FormData
-      if (file) {
-        formData.append("file", file);
-        console.log("📁 文件已添加到 FormData:", file.name, file.size, "bytes");
-      }
-      
-      // 如果有文本输入，也添加到 FormData
-      if (inputText) {
-        formData.append("input_text", inputText);
-        console.log("📝 文本已添加到 FormData:", inputText.length, "字符");
+      // ✅ H10 服务特殊处理
+      if (selected.id === H10_SERVICE_ID) {
+        // 添加所有 H10 文件（包括单独上传和文件夹中的文件）
+        Object.entries(h10Files).forEach(([key, file]) => {
+          if (file) {
+            formData.append(`file_${key}`, file);
+            console.log(`📁 ${key} 文件已添加:`, file.name, file.size, "bytes");
+          }
+        });
+        
+        // 如果有文件夹，也添加所有文件（作为单独的文件参数）
+        if (h10Folder && h10Folder.length > 0) {
+          const namePatterns: Record<string, string[]> = {
+            "H10反查总表": ["h10", "反查总表", "h10反查"],
+            "竞品1": ["竞品1", "竞品 1", "competitor1", "comp1"],
+            "竞品2": ["竞品2", "竞品 2", "competitor2", "comp2"],
+            "竞品3": ["竞品3", "竞品 3", "competitor3", "comp3"],
+            "竞品4": ["竞品4", "竞品 4", "competitor4", "comp4"],
+            "竞品5": ["竞品5", "竞品 5", "competitor5", "comp5"],
+            "竞品6": ["竞品6", "竞品 6", "competitor6", "comp6"],
+            "竞品7": ["竞品7", "竞品 7", "competitor7", "comp7"],
+            "竞品8": ["竞品8", "竞品 8", "competitor8", "comp8"],
+            "竞品9": ["竞品9", "竞品 9", "competitor9", "comp9"],
+            "竞品10": ["竞品10", "竞品 10", "competitor10", "comp10"],
+            "自身ASIN反查": ["自身", "asin反查", "自身asin"],
+            "竞对ABA热搜词反查": ["竞对", "aba", "热搜词", "多asin"],
+            "拓词基础表": ["拓词", "基础表"],
+          };
+          
+          Array.from(h10Folder).forEach((file) => {
+            const fileName = file.name.toLowerCase();
+            for (const [key, patterns] of Object.entries(namePatterns)) {
+              if (patterns.some(pattern => fileName.includes(pattern.toLowerCase()))) {
+                // 如果这个文件还没有被单独上传，则添加
+                if (!h10Files[key]) {
+                  formData.append(`file_${key}`, file);
+                  console.log(`📁 从文件夹添加 ${key}:`, file.name);
+                }
+                break;
+              }
+            }
+          });
+          console.log(`📁 文件夹文件处理完成: ${h10Folder.length} 个文件`);
+        }
+      } else {
+        // 其他服务的处理
+        // 如果有文件，直接添加到 FormData
+        if (file) {
+          formData.append("file", file);
+          console.log("📁 文件已添加到 FormData:", file.name, file.size, "bytes");
+        }
+        
+        // 如果有文本输入，也添加到 FormData
+        if (inputText) {
+          formData.append("input_text", inputText);
+          console.log("📝 文本已添加到 FormData:", inputText.length, "字符");
+        }
       }
       
       // ✅ 传递 service_id 给 FastAPI（用于区分不同的处理逻辑）
@@ -450,6 +570,12 @@ export default function DashboardClient({ services, user }: Props) {
                         }
 
                         console.log("✅ 选择服务:", service);
+                        console.log("🔍 服务 ID 检查:", { 
+                          serviceId: service.id, 
+                          h10ServiceId: H10_SERVICE_ID, 
+                          isMatch: service.id === H10_SERVICE_ID,
+                          serviceTitle: service.title
+                        });
                         setSelected(service);
                         setOpen(true);
                         setError(null);
@@ -472,8 +598,8 @@ export default function DashboardClient({ services, user }: Props) {
       </main>
 
       {open && selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm overflow-y-auto">
+          <div className={`w-full ${selected.id === H10_SERVICE_ID ? 'max-w-4xl' : 'max-w-xl'} rounded-2xl border border-slate-200 bg-white p-6 shadow-xl my-8`}>
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
@@ -493,41 +619,137 @@ export default function DashboardClient({ services, user }: Props) {
             </div>
 
             <form className="mt-6 space-y-4" onSubmit={onSubmitTask}>
-              {requiresText && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    Text Input
-                  </label>
-                  <Textarea
-                    rows={4}
-                    placeholder="Describe your task or paste keywords..."
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                  />
-                </div>
-              )}
-
-              {requiresFile && (
-                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-medium text-slate-700">
-                    Upload file (.csv, .xlsx, .txt)
-                  </p>
-                  <label className="mt-3 flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 hover:border-slate-400">
-                    <div className="flex items-center gap-3">
-                      <Upload className="h-4 w-4" />
-                      <span>{file ? file.name : "Choose file"}</span>
+              {/* ✅ H10 服务特殊界面 */}
+              {selected.id === H10_SERVICE_ID ? (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <p className="mb-3 text-sm font-medium text-slate-700">
+                      方式一：分别上传各个表格文件
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.keys(h10Files).map((key) => (
+                        <label
+                          key={key}
+                          className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 hover:border-slate-400"
+                        >
+                          <span className="truncate flex-1 mr-2">{key}</span>
+                          <span className="text-xs text-slate-500">
+                            {h10Files[key] ? h10Files[key]!.name : "选择文件"}
+                          </span>
+                          <input
+                            type="file"
+                            accept=".xlsx,.xls"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              setH10Files((prev) => ({ ...prev, [key]: f }));
+                            }}
+                          />
+                        </label>
+                      ))}
                     </div>
-                    <input
-                      type="file"
-                      accept=".csv,.xlsx,.txt"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        setFile(f ?? null);
-                      }}
-                    />
-                  </label>
+                  </div>
+                  
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <p className="mb-3 text-sm font-medium text-slate-700">
+                      方式二：选择包含所有表格的文件夹
+                    </p>
+                    <label className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 hover:border-slate-400">
+                      <div className="flex items-center gap-3">
+                        <Upload className="h-4 w-4" />
+                        <span>
+                          {h10Folder && h10Folder.length > 0
+                            ? `已选择 ${h10Folder.length} 个文件`
+                            : "选择文件夹"}
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        webkitdirectory=""
+                        directory=""
+                        multiple
+                        accept=".xlsx,.xls"
+                        className="hidden"
+                        onChange={(e) => {
+                          setH10Folder(e.target.files);
+                          // 自动匹配文件名
+                          if (e.target.files) {
+                            const newFiles: Record<string, File | null> = { ...h10Files };
+                            const namePatterns: Record<string, string[]> = {
+                              "H10反查总表": ["h10", "反查总表", "h10反查"],
+                              "竞品1": ["竞品1", "竞品 1", "competitor1", "comp1", "1"],
+                              "竞品2": ["竞品2", "竞品 2", "competitor2", "comp2", "2"],
+                              "竞品3": ["竞品3", "竞品 3", "competitor3", "comp3", "3"],
+                              "竞品4": ["竞品4", "竞品 4", "competitor4", "comp4", "4"],
+                              "竞品5": ["竞品5", "竞品 5", "competitor5", "comp5", "5"],
+                              "竞品6": ["竞品6", "竞品 6", "competitor6", "comp6", "6"],
+                              "竞品7": ["竞品7", "竞品 7", "competitor7", "comp7", "7"],
+                              "竞品8": ["竞品8", "竞品 8", "competitor8", "comp8", "8"],
+                              "竞品9": ["竞品9", "竞品 9", "competitor9", "comp9", "9"],
+                              "竞品10": ["竞品10", "竞品 10", "competitor10", "comp10", "10"],
+                              "自身ASIN反查": ["自身", "asin反查", "自身asin"],
+                              "竞对ABA热搜词反查": ["竞对", "aba", "热搜词", "多asin"],
+                              "拓词基础表": ["拓词", "基础表"],
+                            };
+                            
+                            Array.from(e.target.files).forEach((file) => {
+                              const fileName = file.name.toLowerCase();
+                              for (const [key, patterns] of Object.entries(namePatterns)) {
+                                if (patterns.some(pattern => fileName.includes(pattern.toLowerCase()))) {
+                                  if (!newFiles[key]) {  // 如果还没被单独上传覆盖
+                                    newFiles[key] = file;
+                                    console.log(`✅ 自动匹配: ${file.name} -> ${key}`);
+                                    break;
+                                  }
+                                }
+                              }
+                            });
+                            setH10Files(newFiles);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {requiresText && (
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                        Text Input
+                      </label>
+                      <Textarea
+                        rows={4}
+                        placeholder="Describe your task or paste keywords..."
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  {requiresFile && (
+                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm font-medium text-slate-700">
+                        Upload file (.csv, .xlsx, .txt)
+                      </p>
+                      <label className="mt-3 flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 hover:border-slate-400">
+                        <div className="flex items-center gap-3">
+                          <Upload className="h-4 w-4" />
+                          <span>{file ? file.name : "Choose file"}</span>
+                        </div>
+                        <input
+                          type="file"
+                          accept=".csv,.xlsx,.txt"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            setFile(f ?? null);
+                          }}
+                        />
+                      </label>
+                    </div>
+                  )}
+                </>
               )}
 
               {error && (
@@ -551,14 +773,24 @@ export default function DashboardClient({ services, user }: Props) {
                       {jobId && jobStatus?.status === "done" && (
                         <>
                           <button
-                            onClick={() => downloadReport(jobId, selected.webhook_url)}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              downloadReport(jobId, selected.webhook_url);
+                            }}
                             className="text-xs text-blue-600 hover:text-blue-800 underline"
                           >
                             下载 Word 报告
                           </button>
                           {jobStatus?.artifacts?.image_path && (
                             <button
-                              onClick={() => downloadImage(jobId, selected.webhook_url)}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                downloadImage(jobId, selected.webhook_url);
+                              }}
                               className="text-xs text-blue-600 hover:text-blue-800 underline"
                             >
                               下载图片
@@ -613,10 +845,10 @@ export default function DashboardClient({ services, user }: Props) {
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Submitting...
+                      {selected.id === H10_SERVICE_ID ? "处理中..." : "Submitting..."}
                     </span>
                   ) : (
-                    "Submit & Trigger"
+                    selected.id === H10_SERVICE_ID ? "开始搭建词库" : "Submit & Trigger"
                   )}
                 </Button>
               </div>

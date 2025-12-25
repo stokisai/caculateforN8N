@@ -20,6 +20,14 @@ from datetime import datetime
 import uuid
 import base64
 
+# ✅ H10 处理模块
+try:
+    from h10_processor import process_h10_analysis
+except ImportError:
+    # 如果导入失败，创建一个占位符函数
+    async def process_h10_analysis(*args, **kwargs):
+        raise HTTPException(status_code=500, detail="H10 处理模块未正确导入")
+
 # --- 配置部分 ---
 app = FastAPI(title="Excel Processing API", version="1.0.0")
 
@@ -36,7 +44,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 连接 Supabase
+# 连接 Supabase（可选，用于任务持久化存储）
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # 建议使用 service_role key
 
@@ -44,19 +52,59 @@ supabase: Optional[Client] = None
 if SUPABASE_URL and SUPABASE_KEY:
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("✅ Supabase 连接成功")
+        print("✅ Supabase 连接成功（任务将持久化存储）")
     except Exception as e:
         print(f"⚠️ Supabase 连接失败: {e}")
+        print("   提示: 任务将存储在内存中，重启后会丢失")
 else:
-    print("⚠️ 警告: 环境变量 SUPABASE_URL 或 SUPABASE_KEY 未设置")
+    # ✅ 修复：Supabase 是可选的，不显示警告（任务存储在内存中）
+    print("ℹ️ 提示: Supabase 未配置，任务将存储在内存中（重启后会丢失）")
+    print("   如需持久化存储，请在 Railway 环境变量中设置 SUPABASE_URL 和 SUPABASE_KEY")
 
 # 社媒选品法服务配置（从环境变量读取）
+# ⚠️ 注意：生产环境应该通过 Railway 环境变量设置，不要硬编码密钥
 SERP_API_KEY = os.getenv("SERP_API_KEY", "081c24883966800829defaacc9226d81832f54fbeb82b82bda1f5c8a9d01df40")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 SERP_API_URL = "https://serpapi.com/search"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 REFERENCE_IMAGE_URL = "https://m.media-amazon.com/images/I/61HVDJy8R4L._SL1500_.jpg"
+
+# ✅ 修复：检测占位符API密钥
+def is_placeholder_key(key: str) -> bool:
+    """检测是否是占位符密钥"""
+    if not key:
+        return False
+    placeholder_patterns = [
+        "__n8n_BLANK_VALUE_",
+        "__BLANK_VALUE__",
+        "your-",
+        "placeholder",
+        "example",
+        "test-key",
+        "REPLACE_ME"
+    ]
+    key_lower = key.lower()
+    return any(pattern.lower() in key_lower for pattern in placeholder_patterns)
+
+# 检查 API 密钥配置
+if not OPENROUTER_API_KEY:
+    print("❌ 错误: OPENROUTER_API_KEY 未设置！LLM 生成将失败。")
+    print("   请在 Railway 环境变量中设置 OPENROUTER_API_KEY")
+elif is_placeholder_key(OPENROUTER_API_KEY):
+    print(f"❌ 错误: OPENROUTER_API_KEY 是占位符值！当前值: {OPENROUTER_API_KEY[:50]}...")
+    print("   请替换为真实的 OpenRouter API 密钥")
+    print("   获取密钥: https://openrouter.ai/keys")
+    OPENROUTER_API_KEY = ""  # 清空占位符，避免使用
+
+if not SERP_API_KEY:
+    print("❌ 错误: SERP_API_KEY 未设置！SERP 搜索将失败。")
+    print("   请在 Railway 环境变量中设置 SERP_API_KEY")
+elif is_placeholder_key(SERP_API_KEY):
+    print(f"❌ 错误: SERP_API_KEY 是占位符值！当前值: {SERP_API_KEY[:50]}...")
+    print("   请替换为真实的 SerpAPI 密钥")
+    print("   获取密钥: https://serpapi.com/dashboard")
+    SERP_API_KEY = ""  # 清空占位符，避免使用
 
 # 任务存储（生产环境应使用 Redis 或数据库）
 job_storage: Dict[str, Dict] = {}
@@ -66,7 +114,22 @@ job_storage: Dict[str, Dict] = {}
 async def process_excel(
     file: Optional[UploadFile] = File(None),
     service_id: Optional[str] = Form(None),
-    input_text: Optional[str] = Form(None)
+    input_text: Optional[str] = Form(None),
+    # ✅ H10 服务多文件上传
+    file_H10反查总表: Optional[UploadFile] = File(None),
+    file_竞品1: Optional[UploadFile] = File(None),
+    file_竞品2: Optional[UploadFile] = File(None),
+    file_竞品3: Optional[UploadFile] = File(None),
+    file_竞品4: Optional[UploadFile] = File(None),
+    file_竞品5: Optional[UploadFile] = File(None),
+    file_竞品6: Optional[UploadFile] = File(None),
+    file_竞品7: Optional[UploadFile] = File(None),
+    file_竞品8: Optional[UploadFile] = File(None),
+    file_竞品9: Optional[UploadFile] = File(None),
+    file_竞品10: Optional[UploadFile] = File(None),
+    file_自身ASIN反查: Optional[UploadFile] = File(None),
+    file_竞对ABA热搜词反查: Optional[UploadFile] = File(None),
+    file_拓词基础表: Optional[UploadFile] = File(None)
 ):
     """
     处理上传的 Excel/ZIP 文件或文本输入
@@ -80,29 +143,90 @@ async def process_excel(
     if service_id == "7b83cf63-0ad0-4c11-8dc5-6d8c242fbfe6":
         if not input_text or not input_text.strip():
             raise HTTPException(status_code=400, detail="社媒选品法服务需要提供关键词（input_text）")
+        
+        keyword = input_text.strip()
+        
+        # ✅ 修复：检查是否有相同关键词的任务正在运行（防止重复提交）
+        running_jobs = [
+            (job_id, job) 
+            for job_id, job in job_storage.items() 
+            if job.get("keyword") == keyword and job.get("status") in ["queued", "running"]
+        ]
+        
+        if running_jobs:
+            existing_job_id, existing_job = running_jobs[0]
+            print(f"⚠️ 警告: 关键词 '{keyword}' 的任务已在运行中 (Job ID: {existing_job_id}, 状态: {existing_job.get('status')})")
+            return JSONResponse({
+                "message": f"关键词 '{keyword}' 的任务已在运行中，Job ID: {existing_job_id}。请等待完成或使用该 Job ID 查询进度。",
+                "job_id": existing_job_id,
+                "warning": "duplicate_keyword"
+            }, status_code=200)  # 返回 200 而不是错误，因为任务确实存在
+        
         # 直接调用异步任务处理逻辑
         job_id = str(uuid.uuid4())
+        print(f"✅ 创建新任务: Job ID={job_id}, 关键词={keyword}")
         job_storage[job_id] = {
             "status": "queued",
-            "keyword": input_text.strip(),
+            "keyword": keyword,
             "progress": 0.0,
             "sections": [],
             "created_at": datetime.now().isoformat(),
             "artifacts": {}
         }
         # 启动后台任务
-        asyncio.create_task(execute_research_job(job_id, input_text.strip()))
+        asyncio.create_task(execute_research_job(job_id, keyword))
         return JSONResponse({
             "message": f"任务已创建，Job ID: {job_id}。请使用 GET /api/jobs/{job_id} 查询进度。",
             "job_id": job_id
         })
     
-    # 对于其他服务，需要文件
-    if not file:
-        raise HTTPException(status_code=400, detail="此服务需要上传文件")
+    # ✅ H10竞品分析服务：检查 service_id
+    H10_SERVICE_ID = "a8f3c2d1-4e5b-6c7d-8e9f-0a1b2c3d4e5f"
+    
+    # ✅ H10 服务特殊处理
+    if service_id == H10_SERVICE_ID:
+        try:
+            result_stream = await process_h10_analysis(
+                file_H10反查总表=file_H10反查总表,
+                file_竞品1=file_竞品1,
+                file_竞品2=file_竞品2,
+                file_竞品3=file_竞品3,
+                file_竞品4=file_竞品4,
+                file_竞品5=file_竞品5,
+                file_竞品6=file_竞品6,
+                file_竞品7=file_竞品7,
+                file_竞品8=file_竞品8,
+                file_竞品9=file_竞品9,
+                file_竞品10=file_竞品10,
+                file_自身ASIN反查=file_自身ASIN反查,
+                file_竞对ABA热搜词反查=file_竞对ABA热搜词反查,
+                file_拓词基础表=file_拓词基础表,
+                folder_files=None  # 文件夹文件通过单独的文件参数传递
+            )
+            
+            # 返回处理后的 Excel 文件
+            return StreamingResponse(
+                result_stream,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={
+                    "Content-Disposition": 'attachment; filename="H10反查总表.xlsx"'
+                }
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"❌ H10 处理失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"H10 处理失败: {str(e)}")
+    
+    # 对于需要文件的服务，检查文件是否存在
+    if service_id != "7b83cf63-0ad0-4c11-8dc5-6d8c242fbfe6":  # 社媒选品法不需要文件
+        if not file:
+            raise HTTPException(status_code=400, detail="此服务需要上传文件")
     
     # ✅ 修复：安全处理文件名（可能包含非 ASCII 字符）
-    original_filename = file.filename or "uploaded_file"
+    original_filename = file.filename or "uploaded_file" if file else "uploaded_file"
     try:
         # 尝试解码文件名（如果是从 HTTP header 来的，可能是 URL 编码的）
         if isinstance(original_filename, bytes):
@@ -131,38 +255,59 @@ async def process_excel(
             input_zip = zipfile.ZipFile(io.BytesIO(content))
             file_list = input_zip.namelist()
             
-            # 寻找目标文件（可以根据 service_id 或文件名模式匹配）
-            target_file = None
-            if service_id == "h10" or "h10" in original_filename.lower():
-                # 查找包含 H10 的 Excel 文件
-                target_file = next((f for f in file_list if "H10" in f.upper() and (f.endswith(".xlsx") or f.endswith(".xls"))), None)
+            # ✅ H10竞品分析服务：处理 ZIP 中的所有 Excel 文件
+            if service_id == H10_SERVICE_ID:
+                print(f"📦 H10竞品分析：处理 ZIP 文件，包含 {len(file_list)} 个文件")
+                # 查找所有 Excel 文件
+                excel_files = [f for f in file_list if f.endswith((".xlsx", ".xls"))]
+                if not excel_files:
+                    raise HTTPException(status_code=400, detail=f"压缩包里没找到 Excel 文件。文件列表: {file_list}")
+                
+                print(f"📊 找到 {len(excel_files)} 个 Excel 文件: {excel_files}")
+                # TODO: 等待用户提供具体处理逻辑
+                # 暂时读取第一个文件作为示例，后续需要处理所有文件
+                with input_zip.open(excel_files[0]) as f:
+                    df = pd.read_excel(f)
+                result_filename = f"h10_analysis_{int(pd.Timestamp.now().timestamp() * 1000)}.xlsx"
             else:
-                # 查找第一个 Excel 文件
-                target_file = next((f for f in file_list if f.endswith((".xlsx", ".xls"))), None)
-            
-            if not target_file:
-                raise HTTPException(status_code=400, detail=f"压缩包里没找到 Excel 文件。文件列表: {file_list}")
-            
-            print(f"📂 找到目标文件: {target_file}")
-            
-            # 读取 Excel
-            with input_zip.open(target_file) as f:
-                df = pd.read_excel(f)
-            
-            result_filename = f"processed_{os.path.splitext(target_file)[0]}.xlsx"
+                # 其他服务：寻找目标文件（可以根据 service_id 或文件名模式匹配）
+                target_file = None
+                if service_id == "h10" or "h10" in original_filename.lower():
+                    # 查找包含 H10 的 Excel 文件
+                    target_file = next((f for f in file_list if "H10" in f.upper() and (f.endswith(".xlsx") or f.endswith(".xls"))), None)
+                else:
+                    # 查找第一个 Excel 文件
+                    target_file = next((f for f in file_list if f.endswith((".xlsx", ".xls"))), None)
+                
+                if not target_file:
+                    raise HTTPException(status_code=400, detail=f"压缩包里没找到 Excel 文件。文件列表: {file_list}")
+                
+                print(f"📂 找到目标文件: {target_file}")
+                
+                # 读取 Excel
+                with input_zip.open(target_file) as f:
+                    df = pd.read_excel(f)
+                
+                result_filename = f"processed_{os.path.splitext(target_file)[0]}.xlsx"
             
         elif file_extension in ['.xlsx', '.xls']:
             # 直接处理 Excel 文件
-            df = pd.read_excel(io.BytesIO(content))
-            # ✅ 修复：安全处理文件名，避免编码问题
-            base_name = os.path.splitext(original_filename)[0]
-            # 如果文件名包含非 ASCII 字符，使用安全的文件名
-            try:
-                base_name.encode('ascii')
-                result_filename = f"processed_{base_name}.xlsx"
-            except UnicodeEncodeError:
-                # 包含非 ASCII 字符，使用时间戳作为文件名
-                result_filename = f"processed_result_{int(pd.Timestamp.now().timestamp() * 1000)}.xlsx"
+            # ✅ H10竞品分析服务：支持单个 Excel 文件
+            if service_id == H10_SERVICE_ID:
+                print(f"📊 H10竞品分析：处理单个 Excel 文件: {original_filename}")
+                df = pd.read_excel(io.BytesIO(content))
+                result_filename = f"h10_analysis_{int(pd.Timestamp.now().timestamp() * 1000)}.xlsx"
+            else:
+                df = pd.read_excel(io.BytesIO(content))
+                # ✅ 修复：安全处理文件名，避免编码问题
+                base_name = os.path.splitext(original_filename)[0]
+                # 如果文件名包含非 ASCII 字符，使用安全的文件名
+                try:
+                    base_name.encode('ascii')
+                    result_filename = f"processed_{base_name}.xlsx"
+                except UnicodeEncodeError:
+                    # 包含非 ASCII 字符，使用时间戳作为文件名
+                    result_filename = f"processed_result_{int(pd.Timestamp.now().timestamp() * 1000)}.xlsx"
         else:
             raise HTTPException(status_code=400, detail=f"不支持的文件类型: {file_extension}。支持: .xlsx, .xls, .zip")
         
@@ -243,8 +388,22 @@ def process_dataframe(df: pd.DataFrame, service_id: Optional[str], input_text: O
     """
     result_df = df.copy()
     
+    # H10竞品分析服务 ID
+    H10_SERVICE_ID = "a8f3c2d1-4e5b-6c7d-8e9f-0a1b2c3d4e5f"
+    
     # 根据不同的 service_id 执行不同的处理
-    if service_id == "h10" or service_id == "abfaf85c-9553-4d7b-9416-e3aff65e8587":  # Ex大名)
+    if service_id == H10_SERVICE_ID:
+        # ✅ H10竞品分析处理逻辑（等待用户提供具体逻辑）
+        print("🔍 H10竞品分析：开始处理数据...")
+        print(f"   数据行数: {len(df)}")
+        print(f"   列名: {list(df.columns)}")
+        # TODO: 等待用户提供具体的竞品分析逻辑
+        # 暂时返回原数据，添加一个提示列
+        result_df = df.copy()
+        result_df["处理状态"] = "待实现：等待用户提供分析逻辑"
+        print("⚠️ 警告: H10竞品分析逻辑尚未实现，返回原始数据")
+        
+    elif service_id == "h10" or service_id == "abfaf85c-9553-4d7b-9416-e3aff65e8587":  # Ex大名)
         # ✅ Ex大名 处理逻辑：计算 50个评论以内的ASIN占比
         result_df = calculate_asin_ratio(df)
         
@@ -1197,6 +1356,16 @@ async def fetch_serp_data(search_query: str, max_retries: int = 3) -> Dict:
     返回:
     - SERP API 返回的 JSON 数据
     """
+    if not SERP_API_KEY:
+        error_msg = "SERP_API_KEY 未配置或为空"
+        print(f"❌ 错误: {error_msg}")
+        return {}
+    
+    if is_placeholder_key(SERP_API_KEY):
+        error_msg = "SERP_API_KEY 是占位符值，不是真实的API密钥"
+        print(f"❌ 错误: {error_msg}")
+        return {}
+    
     params = {
         "api_key": SERP_API_KEY,
         "q": search_query,
@@ -1325,6 +1494,16 @@ GENERAL RULES:
     
     user_message = cleaned_context
     
+    if not OPENROUTER_API_KEY:
+        error_msg = "OPENROUTER_API_KEY 未配置或为空"
+        print(f"❌ 错误: {error_msg}")
+        return f"⚠️ 错误: {error_msg}\n\n请检查：\n1. 在 Railway 环境变量中设置 OPENROUTER_API_KEY\n2. 确保不是占位符值（如 __n8n_BLANK_VALUE_）\n3. 获取密钥: https://openrouter.ai/keys"
+    
+    if is_placeholder_key(OPENROUTER_API_KEY):
+        error_msg = "OPENROUTER_API_KEY 是占位符值，不是真实的API密钥"
+        print(f"❌ 错误: {error_msg}")
+        return f"⚠️ 错误: {error_msg}\n\n请检查：\n1. 在 Railway 环境变量中设置真实的 OpenRouter API 密钥\n2. 获取密钥: https://openrouter.ai/keys\n3. 当前值看起来是占位符: {OPENROUTER_API_KEY[:50]}..."
+    
     payload = {
         "model": "deepseek/deepseek-chat-v3-0324",
         "messages": [
@@ -1401,10 +1580,12 @@ async def execute_research_job(job_id: str, keyword: str):
         async def fetch_serp_with_limit(idx, task):
             async with serp_semaphore:
                 search_query = task["search_query_template"].format(keyword=keyword)
-                print(f"  📊 [{idx+1}/18] SERP 搜索: {task['section_title']}")
+                print(f"  📊 [{idx+1}/18] SERP 搜索: {task['section_title']}, 查询: {search_query}")
                 job_storage[job_id]["sections"][idx]["state"] = "serp_fetching"
                 result = await fetch_serp_data(search_query)
+                print(f"  📊 [{idx+1}/18] SERP 响应: {len(str(result))} 字符")
                 cleaned = clean_serp_data(result)
+                print(f"  📊 [{idx+1}/18] SERP 清理后: {len(cleaned)} 字符")
                 serp_results[idx] = cleaned
                 job_storage[job_id]["sections"][idx]["state"] = "serp_done"
                 job_storage[job_id]["progress"] = (idx + 1) / 18 * 0.3  # SERP 占 30% 进度
@@ -1423,6 +1604,7 @@ async def execute_research_job(job_id: str, keyword: str):
         async def generate_with_limit(idx, task, cleaned_context):
             async with llm_semaphore:
                 print(f"  ✍️ [{idx+1}/18] LLM 生成: {task['section_title']}")
+                print(f"  ✍️ [{idx+1}/18] 输入上下文长度: {len(cleaned_context)} 字符")
                 job_storage[job_id]["sections"][idx]["state"] = "llm_writing"
                 # 构建完整的写作指令（包含 RULE）
                 keyword_rule = f"""
@@ -1434,14 +1616,50 @@ async def execute_research_job(job_id: str, keyword: str):
 5. 如无法确认某信息是否属于「{keyword}」，必须视为不相关并排除。
 """
                 writing_instruction = keyword_rule + "\n" + task["writing_instruction_template"]
+                
+                # ✅ 修复：检查 cleaned_context 是否为空
+                if not cleaned_context or not cleaned_context.strip():
+                    error_msg = f"SERP 数据为空，无法生成内容"
+                    print(f"  ❌ [{idx+1}/18] 错误: {error_msg}")
+                    job_storage[job_id]["sections"][idx]["state"] = "failed"
+                    job_storage[job_id]["sections"][idx]["error"] = error_msg
+                    llm_results[idx] = f"⚠️ 错误: {error_msg}"
+                    return f"⚠️ 错误: {error_msg}"
+                
                 content = await generate_section_content(
                     task["section_title"],
                     writing_instruction,
                     cleaned_context,
                     keyword
                 )
+                print(f"  ✍️ [{idx+1}/18] LLM 输出: {len(content) if content else 0} 字符")
+                
+                # ✅ 修复：如果内容为空，标记为失败并重试一次
+                if not content or not content.strip():
+                    print(f"  ⚠️ [{idx+1}/18] 警告: LLM 返回空内容，尝试重试...")
+                    # 重试一次
+                    content = await generate_section_content(
+                        task["section_title"],
+                        writing_instruction,
+                        cleaned_context,
+                        keyword,
+                        max_retries=2
+                    )
+                    
+                    if not content or not content.strip():
+                        error_msg = f"LLM API 返回空内容（可能是 API 密钥错误、网络问题或限流）"
+                        print(f"  ❌ [{idx+1}/18] 错误: {error_msg}")
+                        job_storage[job_id]["sections"][idx]["state"] = "failed"
+                        job_storage[job_id]["sections"][idx]["error"] = error_msg
+                        # 设置一个占位内容，而不是完全空
+                        content = f"⚠️ 错误: {error_msg}\n\n请检查：\n1. OPENROUTER_API_KEY 是否正确配置\n2. 网络连接是否正常\n3. API 是否被限流"
+                    else:
+                        print(f"  ✅ [{idx+1}/18] 重试成功，生成内容: {len(content)} 字符")
+                        job_storage[job_id]["sections"][idx]["state"] = "llm_done"
+                else:
+                    job_storage[job_id]["sections"][idx]["state"] = "llm_done"
+                
                 llm_results[idx] = content
-                job_storage[job_id]["sections"][idx]["state"] = "llm_done"
                 job_storage[job_id]["sections"][idx]["content"] = content
                 job_storage[job_id]["progress"] = 0.3 + (idx + 1) / 18 * 0.4  # LLM 占 40% 进度
                 return content
@@ -1456,11 +1674,51 @@ async def execute_research_job(job_id: str, keyword: str):
         
         print(f"✅ LLM 生成完成，开始生成报告...")
         
+        # 调试：检查 llm_results
+        print(f"🔍 调试信息 - llm_results 键数量: {len(llm_results)}")
+        empty_count = 0
+        failed_count = 0
+        success_count = 0
+        
+        for idx, content in llm_results.items():
+            content_preview = content[:100] if content else "(空)"
+            content_len = len(content) if content else 0
+            
+            if not content or not content.strip():
+                empty_count += 1
+                print(f"  ❌ 章节 {idx}: {content_len} 字符 (空), 预览: {content_preview}")
+            elif content.strip().startswith("⚠️ 错误:"):
+                failed_count += 1
+                print(f"  ⚠️ 章节 {idx}: {content_len} 字符 (失败), 预览: {content_preview}")
+            else:
+                success_count += 1
+                print(f"  ✅ 章节 {idx}: {content_len} 字符, 预览: {content_preview}")
+        
+        print(f"📊 章节生成统计: 成功={success_count}, 失败={failed_count}, 空={empty_count}, 总计={len(llm_results)}")
+        
+        # ✅ 修复：如果所有章节都失败或为空，提前终止任务
+        if success_count == 0:
+            error_msg = f"所有章节生成失败：成功={success_count}, 失败={failed_count}, 空={empty_count}"
+            print(f"❌ {error_msg}")
+            job_storage[job_id]["status"] = "failed"
+            job_storage[job_id]["error"] = error_msg
+            job_storage[job_id]["progress"] = 0.7
+            return
+        
         # 步骤 3: 生成 Word 报告
         job_storage[job_id]["progress"] = 0.7
         report_path = await generate_word_report(job_id, keyword, llm_results)
         job_storage[job_id]["artifacts"]["report_path"] = report_path
         job_storage[job_id]["progress"] = 0.8
+        
+        # ✅ 修复：验证报告文件是否存在且有内容
+        if os.path.exists(report_path):
+            file_size = os.path.getsize(report_path)
+            print(f"📄 报告文件已生成: {report_path}, 大小: {file_size} 字节")
+            if file_size < 1000:  # 如果文件小于1KB，可能只有标题
+                print(f"⚠️ 警告: 报告文件很小，可能内容不完整")
+        else:
+            print(f"❌ 错误: 报告文件不存在: {report_path}")
         
         # 步骤 4: 提取开发建议并生成视觉 prompt
         dev_suggestion = extract_dev_suggestion(llm_results)
@@ -1534,6 +1792,7 @@ async def generate_word_report(job_id: str, keyword: str, sections_content: Dict
     p {{ margin-bottom: 10px; }}
     li {{ margin-bottom: 5px; }}
     hr {{ border: 0; border-top: 1px solid #ccc; margin: 30px 0; }}
+    .error {{ color: #C00000; background-color: #FFE6E6; padding: 10px; margin: 10px 0; }}
 </style>
 </head><body>
 <h1>全网产品深度调研报告</h1>
@@ -1543,12 +1802,76 @@ async def generate_word_report(job_id: str, keyword: str, sections_content: Dict
 """
     
     # 按顺序添加所有章节
+    empty_sections = []
+    failed_sections = []
+    total_sections = len(RESEARCH_TASKS)
+    successful_sections = 0
+    
     for i, task in enumerate(RESEARCH_TASKS):
         content = sections_content.get(i, "")
-        if content:
-            html_content += f"<h2>{task['section_title']}</h2>"
-            html_content += markdown_to_html(content)
-            html_content += "<hr>"
+        if content and content.strip():
+            # ✅ 修复：检查内容是否以 "⚠️ 错误:" 开头（表示失败）
+            if content.strip().startswith("⚠️ 错误:"):
+                failed_sections.append({
+                    "title": task['section_title'],
+                    "error": content.strip()
+                })
+                html_content += f"<h2>{task['section_title']}</h2>"
+                html_content += f"<div class='error'>{markdown_to_html(content)}</div>"
+                html_content += "<hr>"
+            else:
+                html_content += f"<h2>{task['section_title']}</h2>"
+                html_content += markdown_to_html(content)
+                html_content += "<hr>"
+                successful_sections += 1
+        else:
+            empty_sections.append(task['section_title'])
+            print(f"⚠️ 警告: 章节 '{task['section_title']}' 内容为空")
+    
+    # ✅ 修复：如果有失败或空章节，添加详细的错误提示
+    if empty_sections or failed_sections:
+        html_content += f"<div class='error'><h2>⚠️ 报告生成警告</h2>"
+        html_content += f"<p><strong>成功生成章节: {successful_sections}/{total_sections}</strong></p>"
+        
+        if failed_sections:
+            html_content += f"<p><strong>失败的章节 ({len(failed_sections)} 个):</strong></p><ul>"
+            for section in failed_sections:
+                html_content += f"<li><strong>{section['title']}</strong>: {section['error']}</li>"
+            html_content += "</ul>"
+        
+        if empty_sections:
+            html_content += f"<p><strong>内容为空的章节 ({len(empty_sections)} 个):</strong></p><ul>"
+            for section_title in empty_sections:
+                html_content += f"<li>{section_title}</li>"
+            html_content += "</ul>"
+        
+        html_content += "<p><strong>请检查：</strong></p><ul>"
+        html_content += "<li>SERP_API_KEY 是否正确配置（环境变量 SERP_API_KEY）</li>"
+        html_content += "<li>OPENROUTER_API_KEY 是否正确配置（环境变量 OPENROUTER_API_KEY）</li>"
+        html_content += "<li>网络连接是否正常</li>"
+        html_content += "<li>API 是否被限流（查看后端日志）</li>"
+        html_content += "<li>API 密钥是否有足够的额度</li>"
+        html_content += "</ul></div>"
+    
+    # ✅ 修复：如果所有章节都失败或为空，添加严重警告
+    if successful_sections == 0:
+        html_content += f"<div class='error' style='background-color: #FFE6E6; border: 2px solid #C00000; padding: 20px; margin: 20px 0;'>"
+        html_content += f"<h2 style='color: #C00000;'>❌ 严重错误：报告生成失败</h2>"
+        html_content += f"<p>所有 {total_sections} 个章节都未能成功生成内容。这通常意味着：</p>"
+        html_content += "<ol>"
+        html_content += "<li><strong>API 密钥未配置或错误</strong>：请检查环境变量 OPENROUTER_API_KEY 和 SERP_API_KEY</li>"
+        html_content += "<li><strong>API 调用失败</strong>：请查看后端日志了解详细错误信息</li>"
+        html_content += "<li><strong>网络问题</strong>：后端无法访问 OpenRouter 或 SerpAPI</li>"
+        html_content += "<li><strong>API 限流</strong>：请求过于频繁，请稍后重试</li>"
+        html_content += "</ol>"
+        html_content += "<p><strong>建议操作：</strong></p>"
+        html_content += "<ol>"
+        html_content += "<li>检查后端日志（Railway/服务器日志）</li>"
+        html_content += "<li>验证 API 密钥是否正确配置</li>"
+        html_content += "<li>检查 API 账户余额和限制</li>"
+        html_content += "<li>联系技术支持</li>"
+        html_content += "</ol>"
+        html_content += "</div>"
     
     html_content += "</body></html>"
     
