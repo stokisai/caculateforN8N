@@ -207,14 +207,20 @@ async def process_excel(
             # 返回处理后的 Excel 文件
             # ✅ 修复：正确处理包含中文字符的文件名（使用 RFC 5987 格式）
             result_filename = "H10反查总表_processed.xlsx"
+            # 使用 RFC 5987 格式支持 UTF-8 编码的文件名
+            from urllib.parse import quote as url_quote  # 确保 quote 可用
             try:
-                # 尝试编码为 ASCII，如果失败则使用 RFC 5987 格式
+                # 尝试使用 ASCII 编码
                 result_filename.encode('ascii')
+                # 文件名只包含 ASCII 字符，直接使用
                 content_disposition = f'attachment; filename="{result_filename}"'
             except UnicodeEncodeError:
                 # 包含非 ASCII 字符，使用 RFC 5987 格式
+                # 生成一个 ASCII 安全的 fallback 文件名
                 safe_ascii_filename = "H10_result.xlsx"
-                encoded_filename = quote(result_filename, safe='')
+                # URL 编码原始文件名用于 UTF-8 版本
+                encoded_filename = url_quote(result_filename, safe='')
+                # 使用 RFC 5987 格式：filename 是 ASCII fallback，filename* 是 UTF-8 版本
                 content_disposition = f'attachment; filename="{safe_ascii_filename}"; filename*=UTF-8\'\'{encoded_filename}'
             
             return StreamingResponse(
