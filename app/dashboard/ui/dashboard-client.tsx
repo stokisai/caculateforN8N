@@ -641,7 +641,7 @@ export default function DashboardClient({ services, user }: Props) {
                             accept=".xlsx,.xls"
                             className="hidden"
                             onChange={(e) => {
-                              const f = e.target.files?.[0];
+                              const f = e.target.files?.[0] ?? null;
                               setH10Files((prev) => ({ ...prev, [key]: f }));
                             }}
                           />
