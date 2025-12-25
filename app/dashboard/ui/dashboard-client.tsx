@@ -665,8 +665,7 @@ export default function DashboardClient({ services, user }: Props) {
                       </div>
                       <input
                         type="file"
-                        webkitdirectory=""
-                        directory=""
+                        {...({ webkitdirectory: "" } as any)}
                         multiple
                         accept=".xlsx,.xls"
                         className="hidden"
