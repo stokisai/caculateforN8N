@@ -205,11 +205,23 @@ async def process_excel(
             )
             
             # 返回处理后的 Excel 文件
+            # ✅ 修复：正确处理包含中文字符的文件名（使用 RFC 5987 格式）
+            result_filename = "H10反查总表_processed.xlsx"
+            try:
+                # 尝试编码为 ASCII，如果失败则使用 RFC 5987 格式
+                result_filename.encode('ascii')
+                content_disposition = f'attachment; filename="{result_filename}"'
+            except UnicodeEncodeError:
+                # 包含非 ASCII 字符，使用 RFC 5987 格式
+                safe_ascii_filename = "H10_result.xlsx"
+                encoded_filename = quote(result_filename, safe='')
+                content_disposition = f'attachment; filename="{safe_ascii_filename}"; filename*=UTF-8\'\'{encoded_filename}'
+            
             return StreamingResponse(
                 result_stream,
                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 headers={
-                    "Content-Disposition": 'attachment; filename="H10反查总表.xlsx"'
+                    "Content-Disposition": content_disposition
                 }
             )
         except HTTPException:
