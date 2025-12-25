@@ -323,18 +323,19 @@ export default function DashboardClient({ services, user }: Props) {
         
         // 如果有文件夹，也添加所有文件（作为单独的文件参数）
         if (h10Folder && h10Folder.length > 0) {
+          // ✅ 修复：先匹配竞品10，再匹配竞品1-9，避免 "竞品10" 被 "竞品1" 误匹配
           const namePatterns: Record<string, string[]> = {
             "H10反查总表": ["h10", "反查总表", "h10反查"],
-            "竞品1": ["竞品1", "竞品 1", "competitor1", "comp1"],
-            "竞品2": ["竞品2", "竞品 2", "competitor2", "comp2"],
-            "竞品3": ["竞品3", "竞品 3", "competitor3", "comp3"],
-            "竞品4": ["竞品4", "竞品 4", "competitor4", "comp4"],
-            "竞品5": ["竞品5", "竞品 5", "competitor5", "comp5"],
-            "竞品6": ["竞品6", "竞品 6", "competitor6", "comp6"],
-            "竞品7": ["竞品7", "竞品 7", "competitor7", "comp7"],
-            "竞品8": ["竞品8", "竞品 8", "competitor8", "comp8"],
+            "竞品10": ["竞品10", "竞品 10", "competitor10", "comp10"],  // 先匹配更长的
             "竞品9": ["竞品9", "竞品 9", "competitor9", "comp9"],
-            "竞品10": ["竞品10", "竞品 10", "competitor10", "comp10"],
+            "竞品8": ["竞品8", "竞品 8", "competitor8", "comp8"],
+            "竞品7": ["竞品7", "竞品 7", "competitor7", "comp7"],
+            "竞品6": ["竞品6", "竞品 6", "competitor6", "comp6"],
+            "竞品5": ["竞品5", "竞品 5", "competitor5", "comp5"],
+            "竞品4": ["竞品4", "竞品 4", "competitor4", "comp4"],
+            "竞品3": ["竞品3", "竞品 3", "competitor3", "comp3"],
+            "竞品2": ["竞品2", "竞品 2", "competitor2", "comp2"],
+            "竞品1": ["竞品1", "竞品 1", "competitor1", "comp1"],  // 最后匹配更短的
             "自身ASIN反查": ["自身", "asin反查", "自身asin"],
             "竞对ABA热搜词反查": ["竞对", "aba", "热搜词", "多asin"],
             "拓词基础表": ["拓词", "基础表"],
@@ -343,7 +344,28 @@ export default function DashboardClient({ services, user }: Props) {
           Array.from(h10Folder).forEach((file) => {
             const fileName = file.name.toLowerCase();
             for (const [key, patterns] of Object.entries(namePatterns)) {
-              if (patterns.some(pattern => fileName.includes(pattern.toLowerCase()))) {
+              // ✅ 修复：对于竞品，使用更精确的匹配
+              let matched = false;
+              if (key.startsWith("竞品")) {
+                // 对于竞品文件，确保精确匹配（避免 "竞品10" 被 "竞品1" 匹配）
+                for (const pattern of patterns) {
+                  const patternLower = pattern.toLowerCase();
+                  // 如果文件名包含完整模式，且不是部分匹配
+                  if (fileName.includes(patternLower)) {
+                    // 特殊处理：如果匹配的是 "竞品1"，但文件名包含 "竞品10"，则跳过
+                    if (patternLower.includes("竞品1") && !patternLower.includes("竞品10") && fileName.includes("竞品10")) {
+                      continue;  // 跳过，让 "竞品10" 模式匹配
+                    }
+                    matched = true;
+                    break;
+                  }
+                }
+              } else {
+                // 其他文件使用普通匹配
+                matched = patterns.some(pattern => fileName.includes(pattern.toLowerCase()));
+              }
+              
+              if (matched) {
                 // 如果这个文件还没有被单独上传，则添加
                 if (!h10Files[key]) {
                   formData.append(`file_${key}`, file);
@@ -701,16 +723,17 @@ export default function DashboardClient({ services, user }: Props) {
                             const newFiles: Record<string, File | null> = { ...h10Files };
                             const namePatterns: Record<string, string[]> = {
                               "H10反查总表": ["h10", "反查总表", "h10反查"],
-                              "竞品1": ["竞品1", "竞品 1", "competitor1", "comp1", "1"],
-                              "竞品2": ["竞品2", "竞品 2", "competitor2", "comp2", "2"],
-                              "竞品3": ["竞品3", "竞品 3", "competitor3", "comp3", "3"],
-                              "竞品4": ["竞品4", "竞品 4", "competitor4", "comp4", "4"],
-                              "竞品5": ["竞品5", "竞品 5", "competitor5", "comp5", "5"],
-                              "竞品6": ["竞品6", "竞品 6", "competitor6", "comp6", "6"],
-                              "竞品7": ["竞品7", "竞品 7", "competitor7", "comp7", "7"],
-                              "竞品8": ["竞品8", "竞品 8", "competitor8", "comp8", "8"],
-                              "竞品9": ["竞品9", "竞品 9", "competitor9", "comp9", "9"],
+                              // ✅ 修复：先匹配竞品10，再匹配竞品1-9，避免 "竞品10" 被 "竞品1" 误匹配
                               "竞品10": ["竞品10", "竞品 10", "competitor10", "comp10", "10"],
+                              "竞品9": ["竞品9", "竞品 9", "competitor9", "comp9", "9"],
+                              "竞品8": ["竞品8", "竞品 8", "competitor8", "comp8", "8"],
+                              "竞品7": ["竞品7", "竞品 7", "competitor7", "comp7", "7"],
+                              "竞品6": ["竞品6", "竞品 6", "competitor6", "comp6", "6"],
+                              "竞品5": ["竞品5", "竞品 5", "competitor5", "comp5", "5"],
+                              "竞品4": ["竞品4", "竞品 4", "competitor4", "comp4", "4"],
+                              "竞品3": ["竞品3", "竞品 3", "competitor3", "comp3", "3"],
+                              "竞品2": ["竞品2", "竞品 2", "competitor2", "comp2", "2"],
+                              "竞品1": ["竞品1", "竞品 1", "competitor1", "comp1", "1"],
                               "自身ASIN反查": ["自身", "asin反查", "自身asin"],
                               "竞对ABA热搜词反查": ["竞对", "aba", "热搜词", "多asin"],
                               "拓词基础表": ["拓词", "基础表"],
@@ -718,12 +741,40 @@ export default function DashboardClient({ services, user }: Props) {
                             
                             Array.from(e.target.files).forEach((file) => {
                               const fileName = file.name.toLowerCase();
+                              // ✅ 修复：优先匹配竞品10，避免被竞品1误匹配
+                              let matched = false;
                               for (const [key, patterns] of Object.entries(namePatterns)) {
-                                if (patterns.some(pattern => fileName.includes(pattern.toLowerCase()))) {
-                                  if (!newFiles[key]) {  // 如果还没被单独上传覆盖
-                                    newFiles[key] = file;
-                                    console.log(`✅ 自动匹配: ${file.name} -> ${key}`);
-                                    break;
+                                // 对于竞品文件，使用更精确的匹配
+                                if (key.startsWith("竞品")) {
+                                  for (const pattern of patterns) {
+                                    const patternLower = pattern.toLowerCase();
+                                    // 如果文件名包含完整模式
+                                    if (fileName.includes(patternLower)) {
+                                      // 特殊处理：如果匹配的是 "竞品1" 相关模式，但文件名包含 "竞品10"，则跳过
+                                      if ((patternLower.includes("竞品1") || patternLower === "1") && 
+                                          !patternLower.includes("竞品10") && 
+                                          !patternLower.includes("10") &&
+                                          fileName.includes("竞品10")) {
+                                        continue;  // 跳过，让 "竞品10" 模式匹配
+                                      }
+                                      if (!newFiles[key]) {
+                                        newFiles[key] = file;
+                                        console.log(`✅ 自动匹配: ${file.name} -> ${key}`);
+                                        matched = true;
+                                        break;
+                                      }
+                                    }
+                                  }
+                                  if (matched) break;
+                                } else {
+                                  // 其他文件使用普通匹配
+                                  if (patterns.some(pattern => fileName.includes(pattern.toLowerCase()))) {
+                                    if (!newFiles[key]) {
+                                      newFiles[key] = file;
+                                      console.log(`✅ 自动匹配: ${file.name} -> ${key}`);
+                                      matched = true;
+                                      break;
+                                    }
                                   }
                                 }
                               }
