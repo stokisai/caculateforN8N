@@ -343,18 +343,37 @@ export default function DashboardClient({ services, user }: Props) {
           
           Array.from(h10Folder).forEach((file) => {
             const fileName = file.name.toLowerCase();
+            let matched = false;
+            
+            // ✅ 修复：使用精确匹配，避免部分匹配导致的误判
             for (const [key, patterns] of Object.entries(namePatterns)) {
-              // ✅ 修复：对于竞品，使用更精确的匹配
-              let matched = false;
+              if (matched) break;  // 如果已匹配，跳出循环
+              
+              // 对于竞品文件，使用精确的数字匹配
               if (key.startsWith("竞品")) {
-                // 对于竞品文件，确保精确匹配（避免 "竞品10" 被 "竞品1" 匹配）
+                // 提取竞品编号（如 "竞品10" -> "10", "竞品1" -> "1"）
+                const competitorNum = key.replace("竞品", "");
+                
                 for (const pattern of patterns) {
                   const patternLower = pattern.toLowerCase();
-                  // 如果文件名包含完整模式，且不是部分匹配
-                  if (fileName.includes(patternLower)) {
-                    // 特殊处理：如果匹配的是 "竞品1"，但文件名包含 "竞品10"，则跳过
-                    if (patternLower.includes("竞品1") && !patternLower.includes("竞品10") && fileName.includes("竞品10")) {
-                      continue;  // 跳过，让 "竞品10" 模式匹配
+                  
+                  // 对于数字模式（如 "1", "10"），使用精确匹配确保不会误匹配
+                  if (patternLower === competitorNum) {
+                    // 精确数字匹配：确保文件名中包含 "竞品" + 数字（完整匹配）
+                    const exactPattern = `竞品${competitorNum}`.toLowerCase();
+                    if (fileName.includes(exactPattern)) {
+                      // 额外检查：如果文件名包含更大的数字（如文件名有"竞品10"但当前是"竞品1"），则跳过
+                      if (competitorNum !== "10" && fileName.includes("竞品10")) {
+                        continue;  // 跳过，让 "竞品10" 模式匹配
+                      }
+                      matched = true;
+                      break;
+                    }
+                  } else if (fileName.includes(patternLower)) {
+                    // 对于其他模式（如 "竞品10", "竞品 10"），直接匹配
+                    // 但需要排除：如果文件名包含更大的数字（如文件名有"竞品10"但模式是"竞品1"），则跳过
+                    if (competitorNum !== "10" && fileName.includes("竞品10")) {
+                      continue;  // 文件名包含竞品10，跳过竞品1-9的匹配
                     }
                     matched = true;
                     break;
@@ -370,9 +389,13 @@ export default function DashboardClient({ services, user }: Props) {
                 if (!h10Files[key]) {
                   formData.append(`file_${key}`, file);
                   console.log(`📁 从文件夹添加 ${key}:`, file.name);
+                  break;
                 }
-                break;
               }
+            }
+            
+            if (!matched) {
+              console.warn(`⚠️ 未匹配文件: ${file.name}`);
             }
           });
           console.log(`📁 文件夹文件处理完成: ${h10Folder.length} 个文件`);
@@ -741,21 +764,37 @@ export default function DashboardClient({ services, user }: Props) {
                             
                             Array.from(e.target.files).forEach((file) => {
                               const fileName = file.name.toLowerCase();
-                              // ✅ 修复：优先匹配竞品10，避免被竞品1误匹配
                               let matched = false;
+                              
+                              // ✅ 修复：使用精确匹配，避免部分匹配导致的误判
                               for (const [key, patterns] of Object.entries(namePatterns)) {
-                                // 对于竞品文件，使用更精确的匹配
+                                if (matched) break;  // 如果已匹配，跳出外层循环
+                                
+                                // 对于竞品文件，使用精确的数字匹配
                                 if (key.startsWith("竞品")) {
+                                  // 提取竞品编号（如 "竞品10" -> "10", "竞品1" -> "1"）
+                                  const competitorNum = key.replace("竞品", "");
+                                  
                                   for (const pattern of patterns) {
                                     const patternLower = pattern.toLowerCase();
-                                    // 如果文件名包含完整模式
-                                    if (fileName.includes(patternLower)) {
-                                      // 特殊处理：如果匹配的是 "竞品1" 相关模式，但文件名包含 "竞品10"，则跳过
-                                      if ((patternLower.includes("竞品1") || patternLower === "1") && 
-                                          !patternLower.includes("竞品10") && 
-                                          !patternLower.includes("10") &&
-                                          fileName.includes("竞品10")) {
-                                        continue;  // 跳过，让 "竞品10" 模式匹配
+                                    
+                                    // 对于数字模式（如 "1", "10"），使用精确匹配确保不会误匹配
+                                    if (patternLower === competitorNum) {
+                                      // 精确数字匹配：确保文件名中包含 "竞品" + 数字
+                                      const exactPattern = `竞品${competitorNum}`.toLowerCase();
+                                      if (fileName.includes(exactPattern)) {
+                                        if (!newFiles[key]) {
+                                          newFiles[key] = file;
+                                          console.log(`✅ 自动匹配 (精确): ${file.name} -> ${key}`);
+                                          matched = true;
+                                          break;
+                                        }
+                                      }
+                                    } else if (fileName.includes(patternLower)) {
+                                      // 对于其他模式（如 "竞品10", "竞品 10"），直接匹配
+                                      // 但需要排除：如果文件名包含更大的数字（如文件名有"竞品10"但模式是"竞品1"），则跳过
+                                      if (competitorNum !== "10" && fileName.includes("竞品10")) {
+                                        continue;  // 文件名包含竞品10，跳过竞品1-9的匹配
                                       }
                                       if (!newFiles[key]) {
                                         newFiles[key] = file;
@@ -765,7 +804,6 @@ export default function DashboardClient({ services, user }: Props) {
                                       }
                                     }
                                   }
-                                  if (matched) break;
                                 } else {
                                   // 其他文件使用普通匹配
                                   if (patterns.some(pattern => fileName.includes(pattern.toLowerCase()))) {
@@ -777,6 +815,10 @@ export default function DashboardClient({ services, user }: Props) {
                                     }
                                   }
                                 }
+                              }
+                              
+                              if (!matched) {
+                                console.warn(`⚠️ 未匹配文件: ${file.name}`);
                               }
                             });
                             setH10Files(newFiles);
