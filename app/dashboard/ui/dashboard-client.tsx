@@ -375,11 +375,23 @@ export default function DashboardClient({ services, user }: Props) {
       console.log("🔑 Service ID:", selected.id);
 
       // 直接 POST 到 FastAPI
-      const response = await fetch(fastApiUrl, {
-        method: "POST",
-        body: formData,
-        // 不要设置 Content-Type，让浏览器自动设置 multipart/form-data with boundary
+      console.log("📤 发送请求到:", fastApiUrl);
+      console.log("📦 FormData 内容:", {
+        hasServiceId: formData.has("service_id"),
+        fileKeys: Array.from(formData.keys()).filter(k => k.startsWith("file_")),
       });
+      
+      let response: Response;
+      try {
+        response = await fetch(fastApiUrl, {
+          method: "POST",
+          body: formData,
+          // 不要设置 Content-Type，让浏览器自动设置 multipart/form-data with boundary
+        });
+      } catch (fetchError: any) {
+        console.error("❌ Fetch 请求失败:", fetchError);
+        throw new Error(`无法连接到服务器: ${fetchError?.message || "网络错误"}。请检查服务器是否运行，URL 是否正确: ${fastApiUrl}`);
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -387,8 +399,9 @@ export default function DashboardClient({ services, user }: Props) {
           status: response.status,
           statusText: response.statusText,
           error: errorText,
+          url: fastApiUrl,
         });
-        throw new Error(errorText || `FastAPI 返回错误: ${response.status}`);
+        throw new Error(errorText || `FastAPI 返回错误: ${response.status} ${response.statusText}`);
       }
 
       // 处理响应
@@ -480,7 +493,19 @@ export default function DashboardClient({ services, user }: Props) {
       // 文本结果（JSON 或 text/plain）不自动关闭，让用户查看和下载
     } catch (err: any) {
       console.error("❌ FastAPI 调用失败:", err);
-      setError(err?.message ?? "处理失败，请重试");
+      const errorMessage = err?.message ?? "处理失败，请重试";
+      console.error("错误详情:", {
+        message: errorMessage,
+        name: err?.name,
+        stack: err?.stack,
+        fastApiUrl: selected?.webhook_url,
+      });
+      // 如果错误消息包含 "Failed to fetch"，提供更友好的提示
+      if (errorMessage.includes("Failed to fetch") || errorMessage.includes("fetch")) {
+        setError(`无法连接到服务器: ${selected?.webhook_url}。请检查：1) 服务器是否运行，2) URL 是否正确，3) 是否存在 CORS 问题。`);
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
