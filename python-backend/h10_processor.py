@@ -390,6 +390,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     # 统计标记结果
     mark_counts = h10_df["AN"].value_counts().to_dict()
     print(f"  ✅ AN 列标记完成，共处理 {len(h10_df)} 行，统计: {mark_counts}")
+    print(f"  📊 AN列详细统计: F={mark_counts.get('F', 0)}, E={mark_counts.get('E', 0)}, D={mark_counts.get('D', 0)}, C={mark_counts.get('C', 0)}, B={mark_counts.get('B', 0)}, A={mark_counts.get('A', 0)}")
     return h10_df
 
 
