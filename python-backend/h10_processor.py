@@ -391,7 +391,9 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
             h10_df.at[idx, "AN"] = "A"
     
-    print(f"  ✅ AN 列标记完成，共处理 {len(h10_df)} 行")
+    # 统计标记结果
+    mark_counts = h10_df["AN"].value_counts().to_dict()
+    print(f"  ✅ AN 列标记完成，共处理 {len(h10_df)} 行，统计: {mark_counts}")
     return h10_df
 
 
