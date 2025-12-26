@@ -436,9 +436,14 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         mark = None
         
-        # 规则 1: 包含 D 列中的任意值 -> 不相关词
+        # ✅ 修复：按优先级顺序检查规则
+        
+        # 规则 1: 包含 D 列中的任意值 -> 不相关词（最高优先级）
         if any(word_boundary_match(keyword, val) for val in col_d_values):
             mark = "不相关词"
+        # 规则 7: 包含 E 列 -> 品牌词（第二优先级）
+        elif any(word_boundary_match(keyword, val) for val in col_e_values):
+            mark = "品牌词"
         # 规则 2: 包含 A 列，不包含 B/C/D/E 列 -> 大词或泛词
         elif (any(word_boundary_match(keyword, val) for val in col_a_values) and
               not any(word_boundary_match(keyword, val) for val in col_b_values) and
@@ -473,15 +478,14 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
               not any(word_boundary_match(keyword, val) for val in col_d_values) and
               not any(word_boundary_match(keyword, val) for val in col_e_values)):
             mark = "相关词"
-        # 规则 7: 包含 E 列 -> 品牌词
-        elif any(word_boundary_match(keyword, val) for val in col_e_values):
-            mark = "品牌词"
         else:
             mark = "相关词"  # 默认
         
         h10_df.at[idx, "AO"] = mark
     
-    print(f"  ✅ AO 列标记完成")
+    # 统计标记结果
+    mark_counts = h10_df["AO"].value_counts().to_dict()
+    print(f"  ✅ AO 列标记完成，统计: {mark_counts}")
     return h10_df
 
 
