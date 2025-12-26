@@ -6,6 +6,8 @@ H10 竞品分析处理模块
 import pandas as pd
 import io
 import re
+import json
+import time
 from typing import Dict, Optional, List, Tuple
 from fastapi import UploadFile, HTTPException
 
@@ -557,10 +559,10 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         # 规则 7: 包含 E 列 -> 品牌词（最后检查，但会覆盖其他标记）
         elif any(word_boundary_match(keyword, val) for val in col_e_values):
             mark = "品牌词"
-                    else:
-                        mark = "相关词"  # 默认
-                    
-                    h10_df.at[idx, ao_col_name] = mark
+        else:
+            mark = "相关词"  # 默认
+        
+        h10_df.at[idx, ao_col_name] = mark
                 
                 # 统计标记结果
                 mark_counts = h10_df[ao_col_name].value_counts().to_dict()
