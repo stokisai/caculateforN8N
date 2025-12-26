@@ -302,7 +302,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（优先级：F > E > D > C > B > A）
+    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -311,70 +311,85 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             h10_df.at[idx, "AN"] = "A"
             continue
         
-        marks = []  # 收集所有满足的条件
+        # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: F - 在自身ASIN反查中出现
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
         if keyword in self_asin_keywords:
-            marks.append("F")
+            h10_df.at[idx, "AN"] = "F"
+            continue
         
-        # 规则 2: E - 在竞对ABA热搜词反查中出现
+        # 规则 2: 如果关键词在竞对ABA热搜词反查中出现 -> E
         if keyword in aba_keywords:
-            marks.append("E")
+            h10_df.at[idx, "AN"] = "E"
+            continue
         
         # 规则 3-6: 检查竞品数据
         if keyword in competitor_keywords_data:
             comp_data = competitor_keywords_data[keyword]
             
-            # 检查所有竞品的数据
-            has_d = False  # D: 广告排名<=20 且 自然排名<=20（任意一个竞品满足）
-            has_c = False  # C: 仅自然排名<=20（任意一个竞品满足）
-            has_b = False  # B: 仅广告排名<=20（任意一个竞品满足）
-            all_comp_high = True  # 所有竞品的广告和自然排名都>20或无值
-            
+            # 规则 3: 如果广告排名<=20 且 自然排名<=20（任意一个竞品满足即可）-> D
+            has_d = False
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
-                
-                # D: 广告排名<=20 且 自然排名<=20（任意一个竞品满足即可）
                 if (ad_rank is not None and ad_rank <= 20) and (natural_rank is not None and natural_rank <= 20):
                     has_d = True
-                    all_comp_high = False
-                # C: 仅自然排名<=20（广告排名>20或无值）（任意一个竞品满足即可）
-                elif (natural_rank is not None and natural_rank <= 20) and (ad_rank is None or ad_rank > 20):
-                    has_c = True
-                    all_comp_high = False
-                # B: 仅广告排名<=20（自然排名>20或无值）（任意一个竞品满足即可）
-                elif (ad_rank is not None and ad_rank <= 20) and (natural_rank is None or natural_rank > 20):
-                    has_b = True
-                    all_comp_high = False
-                
-                # 检查是否所有排名都>20或无值（所有竞品都要满足）
-                if ad_rank is not None and ad_rank <= 20:
-                    all_comp_high = False
-                if natural_rank is not None and natural_rank <= 20:
-                    all_comp_high = False
+                    break
             
             if has_d:
-                marks.append("D")
+                h10_df.at[idx, "AN"] = "D"
+                continue
+            
+            # 规则 4: 如果仅自然排名<=20（广告排名>20或无值，任意一个竞品满足即可）-> C
+            has_c = False
+            for comp_name, ranks in comp_data.items():
+                ad_rank = ranks.get("ad_rank")
+                natural_rank = ranks.get("natural_rank")
+                if (natural_rank is not None and natural_rank <= 20) and (ad_rank is None or ad_rank > 20):
+                    has_c = True
+                    break
+            
             if has_c:
-                marks.append("C")
+                h10_df.at[idx, "AN"] = "C"
+                continue
+            
+            # 规则 5: 如果仅广告排名<=20（自然排名>20或无值，任意一个竞品满足即可）-> B
+            has_b = False
+            for comp_name, ranks in comp_data.items():
+                ad_rank = ranks.get("ad_rank")
+                natural_rank = ranks.get("natural_rank")
+                if (ad_rank is not None and ad_rank <= 20) and (natural_rank is None or natural_rank > 20):
+                    has_b = True
+                    break
+            
             if has_b:
-                marks.append("B")
+                h10_df.at[idx, "AN"] = "B"
+                continue
+            
+            # 规则 6: 如果所有竞品的广告排名和自然排名都>20或无值（所有竞品都要满足这个条件）-> A
+            all_comp_high = True
+            for comp_name, ranks in comp_data.items():
+                ad_rank = ranks.get("ad_rank")
+                natural_rank = ranks.get("natural_rank")
+                # 对于每个竞品，广告排名和自然排名都必须>20或无值
+                # 如果有任何一个竞品不满足（广告排名存在且<=20，或自然排名存在且<=20），则不是所有竞品都满足
+                if (ad_rank is not None and ad_rank <= 20) or (natural_rank is not None and natural_rank <= 20):
+                    all_comp_high = False
+                    break
+            
             if all_comp_high:
-                marks.append("A")
+                h10_df.at[idx, "AN"] = "A"
+            else:
+                # 如果所有竞品都>20的条件不满足，说明至少有一个竞品有排名<=20的情况
+                # 但前面已经检查了D/C/B的情况，如果都不满足，说明逻辑有问题
+                # 按照需求，这种情况应该不会出现，因为D/C/B已经覆盖了所有<=20的情况
+                # 但为了保险，还是标记为A（因为规则6说"所有竞品都>20或无值"才标记A，否则应该是D/C/B）
+                # 如果到了这里，说明前面的判断有遗漏，应该重新检查
+                # 但按照需求逻辑，这里不应该到达，所以标记为A作为默认值
+                h10_df.at[idx, "AN"] = "A"
         else:
-            # 规则 6: 在竞品中未出现
-            marks.append("A")
-        
-        # 规则 7: 如果同时满足多个条件，仅标记为最高一级（F > E > D > C > B > A）
-        priority_order = ["F", "E", "D", "C", "B", "A"]
-        final_mark = "A"  # 默认
-        for p in priority_order:
-            if p in marks:
-                final_mark = p
-                break
-        
-        h10_df.at[idx, "AN"] = final_mark
+            # 规则 6: 如果关键词在竞品1-10中未出现 -> A
+            h10_df.at[idx, "AN"] = "A"
     
     print(f"  ✅ AN 列标记完成，共处理 {len(h10_df)} 行")
     return h10_df
