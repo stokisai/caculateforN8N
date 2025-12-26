@@ -150,3 +150,7 @@ ALTER TABLE public.tasks DISABLE ROW LEVEL SECURITY;
 - `supabase_schema.sql` - 完整的数据库 schema（包含基础 RLS 设置）
 - `next.config.ts` - Next.js 图片配置
 
+
+
+
+

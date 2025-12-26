@@ -1,39 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { createBrowserClient } from "@supabase/ssr";
-import { LogOut, Upload, FileText, CheckCircle, Loader2, Copy, X } from "lucide-react";
-import type { Service } from "@/types/supabase";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { LogOut, Upload, FileText, CheckCircle, Loader2, Copy } from "lucide-react";
 
-// tasks 表 insert 用
-type TaskInsert = {
-  user_id: string;
-  service_id: string;
-  input_text: string | null;
-  file_url: string | null;
-  status: string;
-};
-
-type DashboardClientProps = {
-  services: Service[];
-  user: {
-    id: string;
-    email?: string | null;
-  };
-};
-
-export default function DashboardClient({ services, user }: DashboardClientProps) {
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
+export default function DashboardClient({ services, user }: any) {
+  const [selectedService, setSelectedService] = useState<any>(null);
   const [file, setFile] = useState<File | null>(null);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  // 新增：用来存储 n8n 返回的文字内容
   const [resultContent, setResultContent] = useState("");
 
-  // 初始化 Supabase Browser Client
+  // 初始化客户端 Supabase
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -54,132 +34,84 @@ export default function DashboardClient({ services, user }: DashboardClientProps
 
   const handleSubmit = async () => {
     if (!selectedService) return;
-
-    // 验证输入
-    const requiresText =
-      selectedService.input_type === "text" ||
-      selectedService.input_type === "both";
-    const requiresFile =
-      selectedService.input_type === "file" ||
-      selectedService.input_type === "both";
-
-    if (requiresText && !inputText.trim()) {
-      alert("请输入文本内容");
-      return;
-    }
-    if (requiresFile && !file) {
-      alert("请上传文件");
-      return;
-    }
-
     setLoading(true);
-    setResultContent("");
-    setSuccess(false);
+    setResultContent(""); // 清空旧结果
 
     try {
-      // ✅ 新架构：直接调用 FastAPI，不经过 n8n 和 Supabase Storage
-      // FastAPI endpoint 存储在 services.webhook_url 中（需要更新为 FastAPI URL）
-      const fastApiUrl = selectedService.webhook_url;
+      // 1. 如果有文件，直接上传到 n8n webhook（multipart/form-data）
+      let response: Response;
       
-      if (!fastApiUrl || !fastApiUrl.startsWith("http")) {
-        throw new Error(`FastAPI URL 配置错误: ${fastApiUrl}`);
-      }
-
-      console.log("🚀 直接调用 FastAPI:", fastApiUrl);
-      console.log("📤 发送数据:", {
-        hasFile: !!file,
-        fileName: file?.name,
-        fileSize: file?.size,
-        hasText: !!inputText,
-        textLength: inputText?.length,
-      });
-
-      // 构建 FormData（multipart/form-data）
-      const formData = new FormData();
-      
-      // 如果有文件，直接添加到 FormData
       if (file) {
-        formData.append("file", file);
-        console.log("📁 文件已添加到 FormData:", file.name, file.size, "bytes");
-      }
-      
-      // 如果有文本输入，也添加到 FormData
-      if (inputText) {
-        formData.append("input_text", inputText);
-        console.log("📝 文本已添加到 FormData:", inputText.length, "字符");
-      }
-      
-      // ✅ 传递 service_id 给 FastAPI（用于区分不同的处理逻辑）
-      formData.append("service_id", selectedService.id);
-      console.log("🔑 Service ID:", selectedService.id);
+        // 使用 FormData 直接上传文件
+        const formData = new FormData();
+        formData.append("data", file);
 
-      // 直接 POST 到 FastAPI
-      const response = await fetch(fastApiUrl, {
-        method: "POST",
-        body: formData,
-        // 不要设置 Content-Type，让浏览器自动设置 multipart/form-data with boundary
-      });
+        response = await fetch("/api/n8n", {
+          method: "POST",
+          body: formData,
+          headers: {
+            "X-Webhook-URL": selectedService.webhook_url || "",
+          },
+        });
+      } else {
+        // 没有文件时，发送 JSON
+        response = await fetch("/api/n8n", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            webhook_url: selectedService.webhook_url,
+            input_text: inputText,
+          }),
+        });
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("❌ FastAPI 错误响应:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText,
-        });
-        throw new Error(errorText || `FastAPI 返回错误: ${response.status}`);
+        throw new Error(`Processing failed: ${errorText}`);
       }
 
-      // 处理响应
-      const contentType = response.headers.get("content-type") || "";
-      console.log("📥 FastAPI 响应:", {
-        status: response.status,
-        contentType: contentType,
-      });
-      
-      if (contentType.includes("application/json")) {
-        // JSON 响应
-        const data = await response.json();
-        console.log("📥 FastAPI JSON 响应:", data);
-        const text =
-          data.result ||
-          data.message ||
-          data.output ||
-          data.text ||
-          JSON.stringify(data, null, 2);
-        setResultContent(text);
-        setSuccess(true);
-      } else {
-        // 文件响应（如 Excel）
+      // === 核心逻辑：判断是文件还是文字 ===
+      const contentType = response.headers.get("content-type");
+
+      if (contentType && !contentType.includes("application/json")) {
+        // [情况 A] 是文件：触发下载
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
-
+        a.href = url;
+        // 尝试从 header 获取文件名，如果没有则用默认的
         const contentDisposition = response.headers.get("content-disposition");
         let fileName = `result_${Date.now()}.xlsx`;
         if (contentDisposition) {
-          const match = contentDisposition.match(/filename="?(.+)"?/);
-          if (match) fileName = match[1];
+            const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
+            if (fileNameMatch && fileNameMatch.length === 2) fileName = fileNameMatch[1];
         }
-
-        a.href = url;
         a.download = fileName;
         document.body.appendChild(a);
         a.click();
-        a.remove();
         window.URL.revokeObjectURL(url);
-
-        setSuccess(true);
-        setResultContent("文件已下载");
+        document.body.removeChild(a);
+        
+        setSuccess(true); // 显示简单的成功提示
+      } else {
+        // [情况 B] 是文字 (JSON)：解析并展示
+        const data = await response.json();
+        
+        // 智能提取：尝试找到看起来像结果的字段
+        const textToShow = 
+            data.result || 
+            data.message || 
+            data.output || 
+            data.text ||
+            (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+        
+        setResultContent(textToShow);
+        setSuccess(true); // 显示带文字的成功提示
       }
 
-      // 重置表单
-      setInputText("");
-      setFile(null);
-      setTimeout(() => handleCloseModal(), 1500);
-    } catch (error: any) {
-      console.error("❌ FastAPI 调用失败:", error);
-      alert(error.message || "提交失败，请重试");
+    } catch (error) {
+      console.error("Error:", error);
+      alert("提交失败，请重试");
     } finally {
       setLoading(false);
     }
@@ -187,196 +119,145 @@ export default function DashboardClient({ services, user }: DashboardClientProps
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
-      {/* 顶部 */}
+      {/* 顶部导航 */}
       <div className="max-w-6xl mx-auto flex justify-between items-center mb-12">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">控制台</h1>
-          <p className="text-slate-500">欢迎回来, {user.email || "用户"}</p>
+          <p className="text-slate-500">欢迎回来, {user.email}</p>
         </div>
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-2 text-sm text-slate-600 hover:text-red-600"
+          className="flex items-center gap-2 text-sm text-slate-600 hover:text-red-600 transition-colors"
         >
           <LogOut size={16} /> 退出登录
         </button>
       </div>
 
-      {/* 服务列表 */}
+      {/* 服务卡片网格 */}
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {services.map((service) => {
-          // 🔍 调试日志
-          console.log("🔍 SERVICE DATA:", {
-            id: service.id,
-            title: service.title,
-            webhook_url: service.webhook_url,
-            input_type: service.input_type,
-            image_url: service.image_url,
-            has_webhook: !!service.webhook_url,
-            has_input_type: !!service.input_type,
-          });
-
-          return (
-            <article
-              key={service.id}
-              className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md cursor-pointer"
-              onClick={() => {
-                // ✅ 数据验证
-                if (!service.webhook_url) {
-                  alert("该服务暂未配置 webhook URL，无法使用");
-                  console.error("❌ 服务缺少 webhook_url:", service);
-                  return;
-                }
-                if (!service.input_type) {
-                  alert("该服务缺少输入类型配置");
-                  console.error("❌ 服务缺少 input_type:", service);
-                  return;
-                }
-                if (!service.id) {
-                  alert("服务数据异常，缺少 ID");
-                  console.error("❌ 服务缺少 id:", service);
-                  return;
-                }
-
-                console.log("✅ 选择服务:", service);
-                setSelectedService(service);
-              }}
-            >
-              {/* ✅ 图片容器 - 确保有 relative 和固定高度 */}
-              <div className="relative h-40 w-full overflow-hidden bg-slate-100">
-                <Image
-                  src={
-                    service.image_url ||
-                    "https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?auto=format&fit=crop&w=1200&q=80"
-                  }
-                  alt={service.title}
-                  fill
-                  className="object-cover"
-                  sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                />
-              </div>
-              <div className="flex flex-1 flex-col gap-3 p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    {service.title}
-                  </h3>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase text-slate-700">
-                    {service.input_type}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-600 line-clamp-3">
-                  {service.description}
-                </p>
-                <div className="mt-auto pt-2">
-                  <Button className="w-full">Use Agent</Button>
-                </div>
-              </div>
-            </article>
-          );
-        })}
+        {services.map((service: any) => (
+          <div
+            key={service.id}
+            onClick={() => setSelectedService(service)}
+            className="group bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-500 cursor-pointer transition-all"
+          >
+            <div className="h-40 bg-slate-100 rounded-lg mb-4 overflow-hidden relative">
+              {service.image_url ? (
+                <img src={service.image_url} alt={service.title} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-slate-400">No Image</div>
+              )}
+            </div>
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">{service.title}</h3>
+            <p className="text-slate-500 text-sm line-clamp-2">{service.description}</p>
+            <div className="mt-4 flex items-center text-indigo-600 font-medium text-sm group-hover:translate-x-1 transition-transform">
+              立即使用 &rarr;
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Modal */}
+      {/* 弹窗 Modal */}
       {selectedService && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-900">
-                  {selectedService.title}
-                </h2>
-                <p className="text-sm text-slate-600 mt-1">
-                  {selectedService.description}
-                </p>
-              </div>
-              <button
-                onClick={handleCloseModal}
-                className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSubmit();
-              }}
-              className="space-y-4"
-            >
-              {(selectedService.input_type === "text" ||
-                selectedService.input_type === "both") && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">
-                    文本输入
-                  </label>
-                  <Textarea
-                    rows={4}
-                    placeholder="请输入..."
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                  />
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+            {!success ? (
+              // === 表单状态 ===
+              <>
+                <div className="flex justify-between items-start mb-6">
+                  <h2 className="text-xl font-bold">{selectedService.title}</h2>
+                  <button onClick={() => setSelectedService(null)} className="text-slate-400 hover:text-slate-600">✕</button>
                 </div>
-              )}
 
-              {(selectedService.input_type === "file" ||
-                selectedService.input_type === "both") && (
-                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-medium text-slate-700 mb-3">
-                    上传文件 (.csv, .xlsx, .txt)
-                  </p>
-                  <label className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 hover:border-slate-400">
-                    <div className="flex items-center gap-3">
-                      <Upload className="h-4 w-4" />
-                      <span>{file ? file.name : "选择文件"}</span>
+                <div className="space-y-4">
+                  {/* 文件上传区 */}
+                  {(selectedService.input_type === "file" || selectedService.input_type === "both") && (
+                    <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 hover:border-indigo-400 transition-colors relative">
+                      <input
+                        type="file"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        onChange={(e) => setFile(e.target.files?.[0] || null)}
+                      />
+                      <div className="flex flex-col items-center gap-2">
+                        {file ? (
+                          <>
+                            <FileText className="text-indigo-600" size={32} />
+                            <span className="text-sm font-medium text-slate-900">{file.name}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="text-slate-400" size={32} />
+                            <span className="text-sm text-slate-500">拖拽或点击上传文件</span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <input
-                      type="file"
-                      accept=".csv,.xlsx,.txt"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        setFile(f ?? null);
-                      }}
-                    />
-                  </label>
-                </div>
-              )}
+                  )}
 
-              {success && (
-                <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                  {resultContent ? (
+                  {/* 文本输入区 */}
+                  {(selectedService.input_type === "text" || selectedService.input_type === "both") && (
                     <div>
-                      <p className="font-medium mb-2">处理成功！</p>
-                      <pre className="text-xs whitespace-pre-wrap">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">需求描述</label>
+                      <textarea
+                        className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        rows={3}
+                        placeholder="请输入具体要求..."
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleSubmit}
+                    disabled={loading || ((selectedService.input_type === "file" && !file) || (selectedService.input_type === "text" && !inputText))}
+                    className="w-full bg-slate-900 text-white py-3 rounded-lg font-medium hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 transition-colors"
+                  >
+                    {loading && <Loader2 className="animate-spin" size={18} />}
+                    {loading ? "处理中..." : "提交任务"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              // === 成功结果展示状态 ===
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="text-green-600" size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">处理完成！</h3>
+                
+                {resultContent ? (
+                  // 如果有文字结果，显示文本框
+                  <div className="mt-4 text-left">
+                    <p className="text-sm text-slate-500 mb-2 font-medium">AI 回复内容：</p>
+                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 max-h-60 overflow-y-auto mb-3">
+                      <pre className="text-sm text-slate-800 whitespace-pre-wrap font-sans break-words">
                         {resultContent}
                       </pre>
                     </div>
-                  ) : (
-                    "任务已提交！"
-                  )}
-                </div>
-              )}
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(resultContent);
+                        alert("已复制到剪贴板");
+                      }}
+                      className="flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+                    >
+                      <Copy size={14} /> 复制结果
+                    </button>
+                  </div>
+                ) : (
+                  // 如果没有文字（说明是文件下载），显示简单提示
+                  <p className="text-slate-500">文件已自动开始下载。</p>
+                )}
 
-              <div className="flex justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
+                <button
                   onClick={handleCloseModal}
+                  className="mt-6 w-full bg-slate-100 text-slate-700 py-2 rounded-lg hover:bg-slate-200 transition-colors font-medium"
                 >
-                  取消
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      提交中...
-                    </span>
-                  ) : (
-                    "提交"
-                  )}
-                </Button>
+                  关闭
+                </button>
               </div>
-            </form>
+            )}
           </div>
         </div>
       )}

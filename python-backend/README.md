@@ -30,12 +30,39 @@
 
 ### 3. 设置环境变量
 
-在 Railway 项目页面 -> Variables 标签页，添加：
+在 Railway 项目页面 -> Variables 标签页，添加以下环境变量：
+
+**必需的环境变量：**
 
 ```
+# Supabase 配置
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=your-service-role-key
+
+# 社媒选品法服务 API 密钥（必需）
+SERP_API_KEY=your-serpapi-key
+OPENROUTER_API_KEY=your-openrouter-key
+
+# Gemini API（可选，用于图片生成）
+GEMINI_API_KEY=your-gemini-key
 ```
+
+**重要提示：**
+
+1. **SERP_API_KEY**: 
+   - 获取地址: https://serpapi.com/dashboard
+   - 用于搜索市场数据和趋势信息
+   - ⚠️ 不要使用占位符值（如 `__n8n_BLANK_VALUE_`）
+
+2. **OPENROUTER_API_KEY**:
+   - 获取地址: https://openrouter.ai/keys
+   - 用于 LLM 生成报告内容
+   - ⚠️ 不要使用占位符值（如 `__n8n_BLANK_VALUE_`）
+   - 确保账户有足够的余额
+
+3. **验证配置**:
+   - 部署后查看后端日志，确认 API 密钥已正确加载
+   - 如果看到 "❌ 错误: OPENROUTER_API_KEY 是占位符值"，说明需要替换为真实密钥
 
 ### 4. 获取部署地址
 
@@ -95,4 +122,5 @@ webhook_url: "https://primary-production-6672d.up.railway.app/webhook/h10-proces
 // 新的 Python 后端 URL
 webhook_url: "https://your-python-backend.up.railway.app/webhook/h10"
 ```
+
 

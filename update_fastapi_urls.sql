@@ -21,3 +21,7 @@ WHERE id = 'd144da99-d3e6-4b78-9cd5-70b1e4ced346';
 -- 验证更新结果
 SELECT id, title, webhook_url FROM public.services ORDER BY created_at DESC;
 
+
+
+
+
