@@ -339,20 +339,23 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_c = False  # 规则 4: 仅自然排名<=20（广告排名>20或无值，任意一个竞品满足）
             has_b = False  # 规则 5: 仅广告排名<=20（自然排名>20或无值，任意一个竞品满足）
             
-            # 遍历所有竞品，检查是否满足D/C/B条件
+            # 遍历所有竞品，检查是否满足D/C/B条件（任意一个竞品满足即可）
+            # ✅ 修复：需要检查所有竞品，分别判断每个竞品是否满足D/C/B条件
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
                 
-                # 规则 3: 广告排名<=20 且 自然排名<=20
+                # 规则 3: 广告排名<=20 且 自然排名<=20（任意一个竞品满足即可）
                 if (ad_rank is not None and ad_rank <= 20) and (natural_rank is not None and natural_rank <= 20):
                     has_d = True
                 
-                # 规则 4: 仅自然排名<=20（广告排名>20或无值）
+                # 规则 4: 仅自然排名<=20（广告排名>20或无值，任意一个竞品满足即可）
+                # 注意：使用独立的if，因为需要检查所有竞品，看是否有任意一个满足C条件
                 if (natural_rank is not None and natural_rank <= 20) and (ad_rank is None or ad_rank > 20):
                     has_c = True
                 
-                # 规则 5: 仅广告排名<=20（自然排名>20或无值）
+                # 规则 5: 仅广告排名<=20（自然排名>20或无值，任意一个竞品满足即可）
+                # 注意：使用独立的if，因为需要检查所有竞品，看是否有任意一个满足B条件
                 if (ad_rank is not None and ad_rank <= 20) and (natural_rank is None or natural_rank > 20):
                     has_b = True
             
