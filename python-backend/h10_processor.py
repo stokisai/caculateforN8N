@@ -235,12 +235,14 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，添加到末尾）
-    if "AN" not in h10_df.columns:
-        h10_df["AN"] = ""
+    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    an_col_name = "关键词类别"
+    if an_col_name not in h10_df.columns:
+        keyword_col_index = h10_df.columns.get_loc(keyword_col)
+        h10_df.insert(keyword_col_index + 1, an_col_name, "")
     else:
         # 如果已存在，清空或保持
-        h10_df["AN"] = h10_df["AN"].fillna("")
+        h10_df[an_col_name] = h10_df[an_col_name].fillna("")
     
     # 收集各工作表的关键词
     # 1. 自身ASIN反查
@@ -315,19 +317,19 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     for idx, row in h10_df.iterrows():
         keyword = str(row[keyword_col]).strip() if pd.notna(row[keyword_col]) else ""
         if not keyword:
-            h10_df.at[idx, "AN"] = "A"
+            h10_df.at[idx, an_col_name] = "A"
             continue
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
         # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
         if keyword in self_asin_keywords:
-            h10_df.at[idx, "AN"] = "F"
+            h10_df.at[idx, an_col_name] = "F"
             continue
         
         # 规则 2: 如果关键词在竞对ABA热搜词反查中出现 -> E
         if keyword in aba_keywords:
-            h10_df.at[idx, "AN"] = "E"
+            h10_df.at[idx, an_col_name] = "E"
             continue
         
         # 规则 3-6: 检查竞品数据
@@ -341,6 +343,10 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             
             # 遍历所有竞品，检查是否满足D/C/B条件（任意一个竞品满足即可）
             # ✅ 修复：需要检查所有竞品，分别判断每个竞品是否满足D/C/B条件
+            # #region agent log
+            log_file_path = r"c:\Users\txk13\Desktop\n8n-saas-curspr\.cursor\debug.log"
+            b_sample_count = 0  # 采样计数，只记录前100个满足B条件的案例
+            # #endregion
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -356,16 +362,68 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                 
                 # 规则 5: 仅广告排名<=20（自然排名>20或无值，任意一个竞品满足即可）
                 # 注意：使用独立的if，因为需要检查所有竞品，看是否有任意一个满足B条件
-                if (ad_rank is not None and ad_rank <= 20) and (natural_rank is None or natural_rank > 20):
+                b_condition_met = (ad_rank is not None and ad_rank <= 20) and (natural_rank is None or natural_rank > 20)
+                if b_condition_met:
                     has_b = True
+                    # #region agent log
+                    # 记录满足B条件的案例（采样）
+                    if b_sample_count < 100:
+                        try:
+                            with open(log_file_path, 'a', encoding='utf-8') as f:
+                                log_entry = {
+                                    "sessionId": "debug-session",
+                                    "runId": "run1",
+                                    "hypothesisId": "B_DETAIL",
+                                    "location": "h10_processor.py:369",
+                                    "message": "B condition met for competitor",
+                                    "data": {
+                                        "keyword": keyword[:50] if len(keyword) > 50 else keyword,
+                                        "competitor": comp_name,
+                                        "ad_rank": ad_rank,
+                                        "natural_rank": natural_rank,
+                                        "has_d": has_d,
+                                        "has_c": has_c
+                                    },
+                                    "timestamp": int(time.time() * 1000)
+                                }
+                                f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+                            b_sample_count += 1
+                        except Exception:
+                            pass
+                    # #endregion
             
             # 按优先级选择最高标记（D > C > B）
+            # #region agent log
+            # 记录最终标记决策（只记录标记为B的情况，以及少量其他情况作为对比）
+            if has_b and b_sample_count > 0:
+                try:
+                    with open(log_file_path, 'a', encoding='utf-8') as f:
+                        log_entry = {
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "B",
+                            "location": "h10_processor.py:399",
+                            "message": "AN column marking decision - B marked",
+                            "data": {
+                                "keyword": keyword[:50] if len(keyword) > 50 else keyword,
+                                "has_d": has_d,
+                                "has_c": has_c,
+                                "has_b": has_b,
+                                "comp_count": len(comp_data),
+                                "final_mark": "B"
+                            },
+                            "timestamp": int(time.time() * 1000)
+                        }
+                        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+                except Exception:
+                    pass
+            # #endregion
             if has_d:
-                h10_df.at[idx, "AN"] = "D"
+                h10_df.at[idx, an_col_name] = "D"
             elif has_c:
-                h10_df.at[idx, "AN"] = "C"
+                h10_df.at[idx, an_col_name] = "C"
             elif has_b:
-                h10_df.at[idx, "AN"] = "B"
+                h10_df.at[idx, an_col_name] = "B"
             else:
                 # 规则 6: 如果所有竞品的广告排名和自然排名都>20或无值（所有竞品都要满足这个条件）-> A
                 all_comp_high = True
@@ -378,17 +436,17 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break
                 
                 if all_comp_high:
-                    h10_df.at[idx, "AN"] = "A"
+                    h10_df.at[idx, an_col_name] = "A"
                 else:
                     # 如果所有竞品都>20的条件不满足，但D/C/B都不满足，说明数据有问题
                     # 按照需求，这种情况不应该出现，但为了保险标记为A
-                    h10_df.at[idx, "AN"] = "A"
+                    h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
-            h10_df.at[idx, "AN"] = "A"
+            h10_df.at[idx, an_col_name] = "A"
     
     # 统计标记结果
-    mark_counts = h10_df["AN"].value_counts().to_dict()
+    mark_counts = h10_df[an_col_name].value_counts().to_dict()
     print(f"  ✅ AN 列标记完成，共处理 {len(h10_df)} 行，统计: {mark_counts}")
     print(f"  📊 AN列详细统计: F={mark_counts.get('F', 0)}, E={mark_counts.get('E', 0)}, D={mark_counts.get('D', 0)}, C={mark_counts.get('C', 0)}, B={mark_counts.get('B', 0)}, A={mark_counts.get('A', 0)}")
     return h10_df
@@ -400,9 +458,16 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列
-    if "AO" not in h10_df.columns:
-        h10_df.insert(len(h10_df.columns), "AO", "")
+    # 初始化 AO 列（使用中文名称"相关性分类"）
+    ao_col_name = "相关性分类"
+    if ao_col_name not in h10_df.columns:
+        # 找到关键词类别列的位置，在其右侧插入
+        an_col_name = "关键词类别"
+        if an_col_name in h10_df.columns:
+            an_col_index = h10_df.columns.get_loc(an_col_name)
+            h10_df.insert(an_col_index + 1, ao_col_name, "")
+        else:
+            h10_df.insert(len(h10_df.columns), ao_col_name, "")
     
     # 查找关键词列
     keyword_col = None
@@ -445,7 +510,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     for idx, row in h10_df.iterrows():
         keyword = str(row[keyword_col]).strip() if pd.notna(row[keyword_col]) else ""
         if not keyword:
-            h10_df.at[idx, "AO"] = "相关词"
+            h10_df.at[idx, ao_col_name] = "相关词"
             continue
         
         mark = None
@@ -492,14 +557,14 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         # 规则 7: 包含 E 列 -> 品牌词（最后检查，但会覆盖其他标记）
         elif any(word_boundary_match(keyword, val) for val in col_e_values):
             mark = "品牌词"
-        else:
-            mark = "相关词"  # 默认
-        
-        h10_df.at[idx, "AO"] = mark
-    
-    # 统计标记结果
-    mark_counts = h10_df["AO"].value_counts().to_dict()
-    print(f"  ✅ AO 列标记完成，统计: {mark_counts}")
+                    else:
+                        mark = "相关词"  # 默认
+                    
+                    h10_df.at[idx, ao_col_name] = mark
+                
+                # 统计标记结果
+                mark_counts = h10_df[ao_col_name].value_counts().to_dict()
+                print(f"  ✅ AO 列标记完成，统计: {mark_counts}")
     return h10_df
 
 
@@ -515,12 +580,19 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（如果不存在，添加到末尾）
-    if "AP" not in h10_df.columns:
-        h10_df["AP"] = ""
+    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    ap_col_name = "流量大小分类"
+    if ap_col_name not in h10_df.columns:
+        # 找到相关性分类列的位置，在其右侧插入
+        ao_col_name = "相关性分类"
+        if ao_col_name in h10_df.columns:
+            ao_col_index = h10_df.columns.get_loc(ao_col_name)
+            h10_df.insert(ao_col_index + 1, ap_col_name, "")
+        else:
+            h10_df.insert(len(h10_df.columns), ap_col_name, "")
     else:
         # 如果已存在，清空或保持
-        h10_df["AP"] = h10_df["AP"].fillna("")
+        h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
     # 查找搜索量列（D列，索引3）
     search_volume_col = None
@@ -578,7 +650,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         else:
             mark = "低流量词4"
         
-        h10_df.at[idx, "AP"] = mark
+        h10_df.at[idx, ap_col_name] = mark
     
     print(f"  ✅ AP 列标记完成，总搜索量: {total_volume:,.0f}")
     return h10_df
