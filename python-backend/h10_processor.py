@@ -338,111 +338,62 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         if keyword in competitor_keywords_data:
             comp_data = competitor_keywords_data[keyword]
             
-            # ✅ 修复：收集所有满足的条件，然后选择最高优先级（D > C > B）
-            has_d = False  # 规则 3: 广告排名<=20 且 自然排名<=20（任意一个竞品满足）
-            has_c = False  # 规则 4: 仅自然排名<=20（广告排名>20或无值，任意一个竞品满足）
-            has_b = False  # 规则 5: 仅广告排名<=20（自然排名>20或无值，任意一个竞品满足）
+            # ✅ 参考用户版本：按优先级顺序检查，找到满足条件后立即break
+            has_d_condition = False
+            has_c_condition = False
+            has_b_condition = False
+            has_a_condition = False
             
-            # 遍历所有竞品，检查是否满足D/C/B条件（任意一个竞品满足即可）
-            # ✅ 修复：需要检查所有竞品，分别判断每个竞品是否满足D/C/B条件
-            # #region agent log
-            log_file_path = r"c:\Users\txk13\Desktop\n8n-saas-curspr\.cursor\debug.log"
-            b_sample_count = 0  # 采样计数，只记录前100个满足B条件的案例
-            # #endregion
+            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
-                
-                # 规则 3: 广告排名<=20 且 自然排名<=20（任意一个竞品满足即可）
-                if (ad_rank is not None and ad_rank <= 20) and (natural_rank is not None and natural_rank <= 20):
-                    has_d = True
-                
-                # 规则 4: 仅自然排名<=20（广告排名>20或无值，任意一个竞品满足即可）
-                # 注意：使用独立的if，因为需要检查所有竞品，看是否有任意一个满足C条件
-                if (natural_rank is not None and natural_rank <= 20) and (ad_rank is None or ad_rank > 20):
-                    has_c = True
-                
-                # 规则 5: 仅广告排名<=20（自然排名>20或无值，任意一个竞品满足即可）
-                # 注意：使用独立的if，因为需要检查所有竞品，看是否有任意一个满足B条件
-                b_condition_met = (ad_rank is not None and ad_rank <= 20) and (natural_rank is None or natural_rank > 20)
-                if b_condition_met:
-                    has_b = True
-                    # #region agent log
-                    # 记录满足B条件的案例（采样）
-                    if b_sample_count < 100:
-                        try:
-                            with open(log_file_path, 'a', encoding='utf-8') as f:
-                                log_entry = {
-                                    "sessionId": "debug-session",
-                                    "runId": "run1",
-                                    "hypothesisId": "B_DETAIL",
-                                    "location": "h10_processor.py:369",
-                                    "message": "B condition met for competitor",
-                                    "data": {
-                                        "keyword": keyword[:50] if len(keyword) > 50 else keyword,
-                                        "competitor": comp_name,
-                                        "ad_rank": ad_rank,
-                                        "natural_rank": natural_rank,
-                                        "has_d": has_d,
-                                        "has_c": has_c
-                                    },
-                                    "timestamp": int(time.time() * 1000)
-                                }
-                                f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
-                            b_sample_count += 1
-                        except Exception:
-                            pass
-                    # #endregion
+                if ad_rank is not None and ad_rank <= 20 and natural_rank is not None and natural_rank <= 20:
+                    has_d_condition = True
+                    break  # D优先级最高，找到就停止
             
-            # 按优先级选择最高标记（D > C > B）
-            # #region agent log
-            # 记录最终标记决策（只记录标记为B的情况，以及少量其他情况作为对比）
-            if has_b and b_sample_count > 0:
-                try:
-                    with open(log_file_path, 'a', encoding='utf-8') as f:
-                        log_entry = {
-                            "sessionId": "debug-session",
-                            "runId": "run1",
-                            "hypothesisId": "B",
-                            "location": "h10_processor.py:399",
-                            "message": "AN column marking decision - B marked",
-                            "data": {
-                                "keyword": keyword[:50] if len(keyword) > 50 else keyword,
-                                "has_d": has_d,
-                                "has_c": has_c,
-                                "has_b": has_b,
-                                "comp_count": len(comp_data),
-                                "final_mark": "B"
-                            },
-                            "timestamp": int(time.time() * 1000)
-                        }
-                        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
-                except Exception:
-                    pass
-            # #endregion
-            if has_d:
-                h10_df.at[idx, an_col_name] = "D"
-            elif has_c:
-                h10_df.at[idx, an_col_name] = "C"
-            elif has_b:
-                h10_df.at[idx, an_col_name] = "B"
-            else:
-                # 规则 6: 如果所有竞品的广告排名和自然排名都>20或无值（所有竞品都要满足这个条件）-> A
-                all_comp_high = True
+            if not has_d_condition:
+                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
-                    # 对于每个竞品，广告排名和自然排名都必须>20或无值
-                    if (ad_rank is not None and ad_rank <= 20) or (natural_rank is not None and natural_rank <= 20):
-                        all_comp_high = False
-                        break
+                    if natural_rank is not None and natural_rank <= 20 and (ad_rank is None or ad_rank > 20):
+                        has_c_condition = True
+                        break  # C优先级高于B和A
                 
-                if all_comp_high:
-                    h10_df.at[idx, an_col_name] = "A"
-                else:
-                    # 如果所有竞品都>20的条件不满足，但D/C/B都不满足，说明数据有问题
-                    # 按照需求，这种情况不应该出现，但为了保险标记为A
-                    h10_df.at[idx, an_col_name] = "A"
+                if not has_c_condition:
+                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    for comp_name, ranks in comp_data.items():
+                        ad_rank = ranks.get("ad_rank")
+                        natural_rank = ranks.get("natural_rank")
+                        if ad_rank is not None and ad_rank <= 20 and (natural_rank is None or natural_rank > 20):
+                            has_b_condition = True
+                            break  # B优先级高于A
+                    
+                    if not has_b_condition:
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        all_a_condition = True
+                        for comp_name, ranks in comp_data.items():
+                            ad_rank = ranks.get("ad_rank")
+                            natural_rank = ranks.get("natural_rank")
+                            if not ((ad_rank is None or ad_rank > 20) and (natural_rank is None or natural_rank > 20)):
+                                all_a_condition = False
+                                break
+                        if all_a_condition:
+                            has_a_condition = True
+            
+            # 按优先级标记
+            if has_d_condition:
+                h10_df.at[idx, an_col_name] = "D"
+            elif has_c_condition:
+                h10_df.at[idx, an_col_name] = "C"
+            elif has_b_condition:
+                h10_df.at[idx, an_col_name] = "B"
+            elif has_a_condition:
+                h10_df.at[idx, an_col_name] = "A"
+            else:
+                # 如果都不满足，标记为A（保险）
+                h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
             h10_df.at[idx, an_col_name] = "A"
@@ -517,48 +468,50 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         mark = None
         
-        # ✅ 严格按照用户需求的规则顺序检查
+        # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 规则 1: 包含 D 列中的任意单元格中的全部值 -> 不相关词（最高优先级）
-        if any(word_boundary_match(keyword, val) for val in col_d_values):
+        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        def contains_any(values):
+            text = keyword.lower()
+            for val in values:
+                if not val:
+                    continue
+                v = str(val).strip().lower()
+                if not v:
+                    continue
+                pattern = rf'(?<![0-9a-zA-Z]){re.escape(v)}(?![0-9a-zA-Z])'
+                if re.search(pattern, text):
+                    return True
+            return False
+        
+        has_a = contains_any(col_a_values)
+        has_b = contains_any(col_b_values)
+        has_c = contains_any(col_c_values)
+        has_d = contains_any(col_d_values)
+        has_e = contains_any(col_e_values)
+        
+        # ✅ 参考用户版本的优先级顺序判断
+        # 1. 不相关词：包含D列任意单元格的全部值
+        if has_d:
             mark = "不相关词"
-        # 规则 2: 包含 A 列，不包含 B/C/D/E 列 -> 大词或泛词
-        elif (any(word_boundary_match(keyword, val) for val in col_a_values) and
-              not any(word_boundary_match(keyword, val) for val in col_b_values) and
-              not any(word_boundary_match(keyword, val) for val in col_c_values) and
-              not any(word_boundary_match(keyword, val) for val in col_d_values) and
-              not any(word_boundary_match(keyword, val) for val in col_e_values)):
-            mark = "大词或泛词"
-        # 规则 3: 包含 A 列和 B 列，不包含 D/E 列 -> a精准属性精准词
-        elif (any(word_boundary_match(keyword, val) for val in col_a_values) and
-              any(word_boundary_match(keyword, val) for val in col_b_values) and
-              not any(word_boundary_match(keyword, val) for val in col_d_values) and
-              not any(word_boundary_match(keyword, val) for val in col_e_values)):
-            mark = "a精准属性精准词"
-        # 规则 4: 包含 A 列和 C 列，不包含 B/D/E 列 -> b泛属性精准词
-        elif (any(word_boundary_match(keyword, val) for val in col_a_values) and
-              any(word_boundary_match(keyword, val) for val in col_c_values) and
-              not any(word_boundary_match(keyword, val) for val in col_b_values) and
-              not any(word_boundary_match(keyword, val) for val in col_d_values) and
-              not any(word_boundary_match(keyword, val) for val in col_e_values)):
-            mark = "b泛属性精准词"
-        # 规则 5: 包含 B 列或 C 列，不包含 A/D/E 列 -> 相关词
-        elif ((any(word_boundary_match(keyword, val) for val in col_b_values) or
-               any(word_boundary_match(keyword, val) for val in col_c_values)) and
-              not any(word_boundary_match(keyword, val) for val in col_a_values) and
-              not any(word_boundary_match(keyword, val) for val in col_d_values) and
-              not any(word_boundary_match(keyword, val) for val in col_e_values)):
-            mark = "相关词"
-        # 规则 6: 不包含 A/B/C/D/E 列 -> 相关词
-        elif (not any(word_boundary_match(keyword, val) for val in col_a_values) and
-              not any(word_boundary_match(keyword, val) for val in col_b_values) and
-              not any(word_boundary_match(keyword, val) for val in col_c_values) and
-              not any(word_boundary_match(keyword, val) for val in col_d_values) and
-              not any(word_boundary_match(keyword, val) for val in col_e_values)):
-            mark = "相关词"
-        # 规则 7: 包含 E 列 -> 品牌词（最后检查，但会覆盖其他标记）
-        elif any(word_boundary_match(keyword, val) for val in col_e_values):
+        # 7. 品牌词：包含E列任意单元格的全部值
+        elif has_e:
             mark = "品牌词"
+        # 3. a精准属性精准词：包含A列和B列，且不包含D、E
+        elif has_a and has_b and not has_d and not has_e:
+            mark = "a精准属性精准词"
+        # 4. b泛属性精准词：包含A列和C列，且不包含B、D、E
+        elif has_a and has_c and not has_b and not has_d and not has_e:
+            mark = "b泛属性精准词"
+        # 2. 大词或泛词：包含A列，且不包含B、C、D、E
+        elif has_a and not has_b and not has_c and not has_d and not has_e:
+            mark = "大词或泛词"
+        # 5. 相关词：包含B或C，且不包含A、D、E
+        elif (has_b or has_c) and not has_a and not has_d and not has_e:
+            mark = "相关词"
+        # 6. 相关词：不包含A、B、C、D、E
+        elif not has_a and not has_b and not has_c and not has_d and not has_e:
+            mark = "相关词"
         else:
             mark = "相关词"  # 默认
         
