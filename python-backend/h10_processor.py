@@ -27,24 +27,20 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
     单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
-    
-    参数:
-    - text: 要搜索的文本
-    - pattern: 要匹配的模式
-    
-    返回:
-    - bool: 是否匹配
+    参考用户版本实现
     """
     if not text or not pattern:
         return False
     
     # 转小写进行匹配
     text_lower = str(text).lower()
-    pattern_lower = str(pattern).lower()
+    pattern_lower = str(pattern).strip().lower()
     
-    # 使用单词边界正则表达式
-    # \b 表示单词边界，确保匹配的是完整单词
-    pattern_regex = r'\b' + re.escape(pattern_lower) + r'\b'
+    if not pattern_lower:
+        return False
+    
+    # ✅ 参考用户版本：使用 (?<![0-9a-zA-Z]) 和 (?![0-9a-zA-Z]) 确保不在字母数字之间
+    pattern_regex = rf'(?<![0-9a-zA-Z]){re.escape(pattern_lower)}(?![0-9a-zA-Z])'
     
     return bool(re.search(pattern_regex, text_lower))
 
