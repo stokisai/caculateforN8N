@@ -563,10 +563,10 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             mark = "相关词"  # 默认
         
         h10_df.at[idx, ao_col_name] = mark
-                
-                # 统计标记结果
-                mark_counts = h10_df[ao_col_name].value_counts().to_dict()
-                print(f"  ✅ AO 列标记完成，统计: {mark_counts}")
+    
+    # 统计标记结果
+    mark_counts = h10_df[ao_col_name].value_counts().to_dict()
+    print(f"  ✅ AO 列标记完成，统计: {mark_counts}")
     return h10_df
 
 
