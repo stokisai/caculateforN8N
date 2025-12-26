@@ -171,13 +171,20 @@ async def process_h10_analysis(
             
             # 如果有多个工作表，读取第一个（或根据名称匹配）
             if key == "竞对ABA热搜词反查":
-                # 查找"多asin反查流量"工作表
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
-                    if "多asin" in sheet or "多ASIN" in sheet or "流量" in sheet:
+                    if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
                         sheet_name = sheet
                         break
                 if not sheet_name:
+                    # 如果找不到精确匹配，尝试模糊匹配
+                    for sheet in excel_file.sheet_names:
+                        if "多asin" in sheet or "多ASIN" in sheet:
+                            sheet_name = sheet
+                            break
+                if not sheet_name:
+                    print(f"  ⚠️ 警告: 未找到'多asin反查流量'工作表，使用第一个工作表")
                     sheet_name = excel_file.sheet_names[0]
                 dataframes[key] = pd.read_excel(excel_file, sheet_name=sheet_name)
                 print(f"  ✅ {key}: 读取工作表 '{sheet_name}'")
@@ -453,14 +460,11 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         mark = None
         
-        # ✅ 修复：按优先级顺序检查规则
+        # ✅ 严格按照用户需求的规则顺序检查
         
-        # 规则 1: 包含 D 列中的任意值 -> 不相关词（最高优先级）
+        # 规则 1: 包含 D 列中的任意单元格中的全部值 -> 不相关词（最高优先级）
         if any(word_boundary_match(keyword, val) for val in col_d_values):
             mark = "不相关词"
-        # 规则 7: 包含 E 列 -> 品牌词（第二优先级）
-        elif any(word_boundary_match(keyword, val) for val in col_e_values):
-            mark = "品牌词"
         # 规则 2: 包含 A 列，不包含 B/C/D/E 列 -> 大词或泛词
         elif (any(word_boundary_match(keyword, val) for val in col_a_values) and
               not any(word_boundary_match(keyword, val) for val in col_b_values) and
@@ -495,6 +499,9 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
               not any(word_boundary_match(keyword, val) for val in col_d_values) and
               not any(word_boundary_match(keyword, val) for val in col_e_values)):
             mark = "相关词"
+        # 规则 7: 包含 E 列 -> 品牌词（最后检查，但会覆盖其他标记）
+        elif any(word_boundary_match(keyword, val) for val in col_e_values):
+            mark = "品牌词"
         else:
             mark = "相关词"  # 默认
         
