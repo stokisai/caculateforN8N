@@ -20,14 +20,6 @@ from datetime import datetime
 import uuid
 import base64
 
-# ✅ H10 处理模块
-try:
-    from h10_processor import process_h10_analysis
-except ImportError:
-    # 如果导入失败，创建一个占位符函数
-    async def process_h10_analysis(*args, **kwargs):
-        raise HTTPException(status_code=500, detail="H10 处理模块未正确导入")
-
 # --- 配置部分 ---
 app = FastAPI(title="Excel Processing API", version="1.0.0")
 
@@ -115,21 +107,6 @@ async def process_excel(
     file: Optional[UploadFile] = File(None),
     service_id: Optional[str] = Form(None),
     input_text: Optional[str] = Form(None),
-    # ✅ H10 服务多文件上传
-    file_H10反查总表: Optional[UploadFile] = File(None),
-    file_竞品1: Optional[UploadFile] = File(None),
-    file_竞品2: Optional[UploadFile] = File(None),
-    file_竞品3: Optional[UploadFile] = File(None),
-    file_竞品4: Optional[UploadFile] = File(None),
-    file_竞品5: Optional[UploadFile] = File(None),
-    file_竞品6: Optional[UploadFile] = File(None),
-    file_竞品7: Optional[UploadFile] = File(None),
-    file_竞品8: Optional[UploadFile] = File(None),
-    file_竞品9: Optional[UploadFile] = File(None),
-    file_竞品10: Optional[UploadFile] = File(None),
-    file_自身ASIN反查: Optional[UploadFile] = File(None),
-    file_竞对ABA热搜词反查: Optional[UploadFile] = File(None),
-    file_拓词基础表: Optional[UploadFile] = File(None)
 ):
     """
     处理上传的 Excel/ZIP 文件或文本输入
@@ -180,64 +157,6 @@ async def process_excel(
             "job_id": job_id
         })
     
-    # ✅ H10竞品分析服务：检查 service_id
-    H10_SERVICE_ID = "a8f3c2d1-4e5b-6c7d-8e9f-0a1b2c3d4e5f"
-    
-    # ✅ H10 服务特殊处理
-    if service_id == H10_SERVICE_ID:
-        try:
-            result_stream = await process_h10_analysis(
-                file_H10反查总表=file_H10反查总表,
-                file_竞品1=file_竞品1,
-                file_竞品2=file_竞品2,
-                file_竞品3=file_竞品3,
-                file_竞品4=file_竞品4,
-                file_竞品5=file_竞品5,
-                file_竞品6=file_竞品6,
-                file_竞品7=file_竞品7,
-                file_竞品8=file_竞品8,
-                file_竞品9=file_竞品9,
-                file_竞品10=file_竞品10,
-                file_自身ASIN反查=file_自身ASIN反查,
-                file_竞对ABA热搜词反查=file_竞对ABA热搜词反查,
-                file_拓词基础表=file_拓词基础表,
-                folder_files=None  # 文件夹文件通过单独的文件参数传递
-            )
-            
-            # 返回处理后的 Excel 文件
-            # ✅ 修复：正确处理包含中文字符的文件名（使用 RFC 5987 格式）
-            result_filename = "H10反查总表_processed.xlsx"
-            # 使用 RFC 5987 格式支持 UTF-8 编码的文件名
-            from urllib.parse import quote as url_quote  # 确保 quote 可用
-            try:
-                # 尝试使用 ASCII 编码
-                result_filename.encode('ascii')
-                # 文件名只包含 ASCII 字符，直接使用
-                content_disposition = f'attachment; filename="{result_filename}"'
-            except UnicodeEncodeError:
-                # 包含非 ASCII 字符，使用 RFC 5987 格式
-                # 生成一个 ASCII 安全的 fallback 文件名
-                safe_ascii_filename = "H10_result.xlsx"
-                # URL 编码原始文件名用于 UTF-8 版本
-                encoded_filename = url_quote(result_filename, safe='')
-                # 使用 RFC 5987 格式：filename 是 ASCII fallback，filename* 是 UTF-8 版本
-                content_disposition = f'attachment; filename="{safe_ascii_filename}"; filename*=UTF-8\'\'{encoded_filename}'
-            
-            return StreamingResponse(
-                result_stream,
-                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                headers={
-                    "Content-Disposition": content_disposition
-                }
-            )
-        except HTTPException:
-            raise
-        except Exception as e:
-            print(f"❌ H10 处理失败: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"H10 处理失败: {str(e)}")
-    
     # 对于需要文件的服务，检查文件是否存在
     if service_id != "7b83cf63-0ad0-4c11-8dc5-6d8c242fbfe6":  # 社媒选品法不需要文件
         if not file:
@@ -273,59 +192,34 @@ async def process_excel(
             input_zip = zipfile.ZipFile(io.BytesIO(content))
             file_list = input_zip.namelist()
             
-            # ✅ H10竞品分析服务：处理 ZIP 中的所有 Excel 文件
-            if service_id == H10_SERVICE_ID:
-                print(f"📦 H10竞品分析：处理 ZIP 文件，包含 {len(file_list)} 个文件")
-                # 查找所有 Excel 文件
-                excel_files = [f for f in file_list if f.endswith((".xlsx", ".xls"))]
-                if not excel_files:
-                    raise HTTPException(status_code=400, detail=f"压缩包里没找到 Excel 文件。文件列表: {file_list}")
-                
-                print(f"📊 找到 {len(excel_files)} 个 Excel 文件: {excel_files}")
-                # TODO: 等待用户提供具体处理逻辑
-                # 暂时读取第一个文件作为示例，后续需要处理所有文件
-                with input_zip.open(excel_files[0]) as f:
-                    df = pd.read_excel(f)
-                result_filename = f"h10_analysis_{int(pd.Timestamp.now().timestamp() * 1000)}.xlsx"
-            else:
-                # 其他服务：寻找目标文件（可以根据 service_id 或文件名模式匹配）
-                target_file = None
-                if service_id == "h10" or "h10" in original_filename.lower():
-                    # 查找包含 H10 的 Excel 文件
-                    target_file = next((f for f in file_list if "H10" in f.upper() and (f.endswith(".xlsx") or f.endswith(".xls"))), None)
-                else:
-                    # 查找第一个 Excel 文件
-                    target_file = next((f for f in file_list if f.endswith((".xlsx", ".xls"))), None)
-                
-                if not target_file:
-                    raise HTTPException(status_code=400, detail=f"压缩包里没找到 Excel 文件。文件列表: {file_list}")
-                
-                print(f"📂 找到目标文件: {target_file}")
-                
-                # 读取 Excel
-                with input_zip.open(target_file) as f:
-                    df = pd.read_excel(f)
-                
-                result_filename = f"processed_{os.path.splitext(target_file)[0]}.xlsx"
+            # 其他服务：寻找目标文件
+            target_file = None
+            # 查找第一个 Excel 文件
+            target_file = next((f for f in file_list if f.endswith((".xlsx", ".xls"))), None)
+            
+            if not target_file:
+                raise HTTPException(status_code=400, detail=f"压缩包里没找到 Excel 文件。文件列表: {file_list}")
+            
+            print(f"📂 找到目标文件: {target_file}")
+            
+            # 读取 Excel
+            with input_zip.open(target_file) as f:
+                df = pd.read_excel(f)
+            
+            result_filename = f"processed_{os.path.splitext(target_file)[0]}.xlsx"
             
         elif file_extension in ['.xlsx', '.xls']:
             # 直接处理 Excel 文件
-            # ✅ H10竞品分析服务：支持单个 Excel 文件
-            if service_id == H10_SERVICE_ID:
-                print(f"📊 H10竞品分析：处理单个 Excel 文件: {original_filename}")
-                df = pd.read_excel(io.BytesIO(content))
-                result_filename = f"h10_analysis_{int(pd.Timestamp.now().timestamp() * 1000)}.xlsx"
-            else:
-                df = pd.read_excel(io.BytesIO(content))
-                # ✅ 修复：安全处理文件名，避免编码问题
-                base_name = os.path.splitext(original_filename)[0]
-                # 如果文件名包含非 ASCII 字符，使用安全的文件名
-                try:
-                    base_name.encode('ascii')
-                    result_filename = f"processed_{base_name}.xlsx"
-                except UnicodeEncodeError:
-                    # 包含非 ASCII 字符，使用时间戳作为文件名
-                    result_filename = f"processed_result_{int(pd.Timestamp.now().timestamp() * 1000)}.xlsx"
+            df = pd.read_excel(io.BytesIO(content))
+            # ✅ 修复：安全处理文件名，避免编码问题
+            base_name = os.path.splitext(original_filename)[0]
+            # 如果文件名包含非 ASCII 字符，使用安全的文件名
+            try:
+                base_name.encode('ascii')
+                result_filename = f"processed_{base_name}.xlsx"
+            except UnicodeEncodeError:
+                # 包含非 ASCII 字符，使用时间戳作为文件名
+                result_filename = f"processed_result_{int(pd.Timestamp.now().timestamp() * 1000)}.xlsx"
         else:
             raise HTTPException(status_code=400, detail=f"不支持的文件类型: {file_extension}。支持: .xlsx, .xls, .zip")
         
@@ -406,22 +300,8 @@ def process_dataframe(df: pd.DataFrame, service_id: Optional[str], input_text: O
     """
     result_df = df.copy()
     
-    # H10竞品分析服务 ID
-    H10_SERVICE_ID = "a8f3c2d1-4e5b-6c7d-8e9f-0a1b2c3d4e5f"
-    
     # 根据不同的 service_id 执行不同的处理
-    if service_id == H10_SERVICE_ID:
-        # ✅ H10竞品分析处理逻辑（等待用户提供具体逻辑）
-        print("🔍 H10竞品分析：开始处理数据...")
-        print(f"   数据行数: {len(df)}")
-        print(f"   列名: {list(df.columns)}")
-        # TODO: 等待用户提供具体的竞品分析逻辑
-        # 暂时返回原数据，添加一个提示列
-        result_df = df.copy()
-        result_df["处理状态"] = "待实现：等待用户提供分析逻辑"
-        print("⚠️ 警告: H10竞品分析逻辑尚未实现，返回原始数据")
-        
-    elif service_id == "h10" or service_id == "abfaf85c-9553-4d7b-9416-e3aff65e8587":  # Ex大名)
+    if service_id == "abfaf85c-9553-4d7b-9416-e3aff65e8587":  # Ex大名
         # ✅ Ex大名 处理逻辑：计算 50个评论以内的ASIN占比
         result_df = calculate_asin_ratio(df)
         
@@ -1183,7 +1063,6 @@ async def webhook_handler(
     """
     # 根据 webhook_path 映射到 service_id
     path_mapping = {
-        "h10": "abfaf85c-9553-4d7b-9416-e3aff65e8587",
         "test-hook": "d144da99-d3e6-4b78-9cd5-70b1e4ced346",
         "d6898f17-a3dd-4171-9a74-24e5cbe67e16": "65bb6f50-5087-488e-8f1b-350d4ed9fe00",
     }
