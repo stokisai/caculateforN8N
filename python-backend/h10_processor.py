@@ -13,7 +13,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -26,7 +26,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -47,7 +47,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -167,9 +167,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -197,13 +197,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -218,13 +218,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -233,7 +233,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -309,7 +309,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -320,7 +320,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -340,7 +340,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -349,7 +349,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -358,7 +358,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -367,7 +367,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -388,7 +388,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -403,11 +403,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -434,7 +434,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -466,7 +466,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -521,7 +521,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -531,7 +531,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -545,7 +545,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -557,7 +557,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -620,7 +620,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -633,7 +633,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -654,7 +654,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -774,9 +774,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -804,13 +804,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -825,13 +825,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -840,7 +840,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -916,7 +916,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -927,7 +927,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -947,7 +947,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -956,7 +956,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -965,7 +965,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -974,7 +974,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -995,7 +995,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -1010,11 +1010,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -1041,7 +1041,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -1073,7 +1073,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -1128,7 +1128,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -1138,7 +1138,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -1152,7 +1152,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -1164,7 +1164,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -1227,7 +1227,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -1240,7 +1240,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -1261,7 +1261,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -1381,9 +1381,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -1411,13 +1411,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -1432,13 +1432,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -1447,7 +1447,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -1523,7 +1523,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -1534,7 +1534,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -1554,7 +1554,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -1563,7 +1563,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -1572,7 +1572,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -1581,7 +1581,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -1602,7 +1602,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -1617,11 +1617,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -1648,7 +1648,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -1680,7 +1680,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -1735,7 +1735,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -1745,7 +1745,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -1759,7 +1759,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -1771,7 +1771,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -1834,7 +1834,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -1847,7 +1847,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -1868,7 +1868,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -1988,9 +1988,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -2018,13 +2018,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -2039,13 +2039,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -2054,7 +2054,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -2130,7 +2130,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -2141,7 +2141,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -2161,7 +2161,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -2170,7 +2170,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -2179,7 +2179,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -2188,7 +2188,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -2209,7 +2209,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -2224,11 +2224,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -2255,7 +2255,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -2287,7 +2287,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -2342,7 +2342,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -2352,7 +2352,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -2366,7 +2366,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -2378,7 +2378,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -2441,7 +2441,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -2454,7 +2454,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -2475,7 +2475,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -2595,9 +2595,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -2625,13 +2625,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -2646,13 +2646,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -2661,7 +2661,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -2737,7 +2737,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -2748,7 +2748,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -2768,7 +2768,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -2777,7 +2777,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -2786,7 +2786,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -2795,7 +2795,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -2816,7 +2816,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -2831,11 +2831,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -2862,7 +2862,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -2894,7 +2894,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -2949,7 +2949,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -2959,7 +2959,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -2973,7 +2973,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -2985,7 +2985,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -3048,7 +3048,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -3061,7 +3061,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -3082,7 +3082,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -3202,9 +3202,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -3232,13 +3232,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -3253,13 +3253,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -3268,7 +3268,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -3344,7 +3344,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -3355,7 +3355,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -3375,7 +3375,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -3384,7 +3384,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -3393,7 +3393,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -3402,7 +3402,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -3423,7 +3423,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -3438,11 +3438,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -3469,7 +3469,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -3501,7 +3501,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -3556,7 +3556,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -3566,7 +3566,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -3580,7 +3580,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -3592,7 +3592,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -3655,7 +3655,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -3668,7 +3668,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -3689,7 +3689,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -3809,9 +3809,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -3839,13 +3839,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -3860,13 +3860,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -3875,7 +3875,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -3951,7 +3951,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -3962,7 +3962,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -3982,7 +3982,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -3991,7 +3991,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -4000,7 +4000,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -4009,7 +4009,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -4030,7 +4030,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -4045,11 +4045,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -4076,7 +4076,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -4108,7 +4108,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -4163,7 +4163,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -4173,7 +4173,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -4187,7 +4187,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -4199,7 +4199,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -4262,7 +4262,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -4275,7 +4275,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -4296,7 +4296,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -4416,9 +4416,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -4446,13 +4446,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -4467,13 +4467,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -4482,7 +4482,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -4558,7 +4558,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -4569,7 +4569,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -4589,7 +4589,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -4598,7 +4598,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -4607,7 +4607,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -4616,7 +4616,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -4637,7 +4637,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -4652,11 +4652,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -4683,7 +4683,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -4715,7 +4715,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -4770,7 +4770,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -4780,7 +4780,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -4794,7 +4794,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -4806,7 +4806,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -4869,7 +4869,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -4882,7 +4882,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -4903,7 +4903,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -5023,9 +5023,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -5053,13 +5053,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -5074,13 +5074,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -5089,7 +5089,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -5165,7 +5165,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -5176,7 +5176,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -5196,7 +5196,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -5205,7 +5205,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -5214,7 +5214,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -5223,7 +5223,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -5244,7 +5244,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -5259,11 +5259,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -5290,7 +5290,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -5322,7 +5322,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -5377,7 +5377,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -5387,7 +5387,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -5401,7 +5401,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -5413,7 +5413,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -5476,7 +5476,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -5489,7 +5489,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -5510,7 +5510,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -5630,9 +5630,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -5660,13 +5660,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -5681,13 +5681,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -5696,7 +5696,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -5772,7 +5772,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -5783,7 +5783,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -5803,7 +5803,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -5812,7 +5812,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -5821,7 +5821,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -5830,7 +5830,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -5851,7 +5851,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -5866,11 +5866,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -5897,7 +5897,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -5929,7 +5929,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -5984,7 +5984,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -5994,7 +5994,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -6008,7 +6008,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -6020,7 +6020,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -6083,7 +6083,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -6096,7 +6096,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -6117,7 +6117,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -6237,9 +6237,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -6267,13 +6267,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -6288,13 +6288,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -6303,7 +6303,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -6379,7 +6379,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -6390,7 +6390,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -6410,7 +6410,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -6419,7 +6419,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -6428,7 +6428,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -6437,7 +6437,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -6458,7 +6458,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -6473,11 +6473,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -6504,7 +6504,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -6536,7 +6536,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -6591,7 +6591,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -6601,7 +6601,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -6615,7 +6615,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -6627,7 +6627,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -6690,7 +6690,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -6703,7 +6703,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -6724,7 +6724,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -6844,9 +6844,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -6874,13 +6874,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -6895,13 +6895,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -6910,7 +6910,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -6986,7 +6986,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -6997,7 +6997,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -7017,7 +7017,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -7026,7 +7026,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -7035,7 +7035,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -7044,7 +7044,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -7065,7 +7065,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -7080,11 +7080,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -7111,7 +7111,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -7143,7 +7143,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -7198,7 +7198,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -7208,7 +7208,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -7222,7 +7222,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -7234,7 +7234,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -7297,7 +7297,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -7310,7 +7310,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -7331,7 +7331,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -7451,9 +7451,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -7481,13 +7481,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -7502,13 +7502,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -7517,7 +7517,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -7593,7 +7593,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -7604,7 +7604,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -7624,7 +7624,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -7633,7 +7633,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -7642,7 +7642,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -7651,7 +7651,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -7672,7 +7672,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -7687,11 +7687,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -7718,7 +7718,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -7750,7 +7750,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -7805,7 +7805,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -7815,7 +7815,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -7829,7 +7829,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -7841,7 +7841,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -7904,7 +7904,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -7917,7 +7917,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -7938,7 +7938,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -8058,9 +8058,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -8088,13 +8088,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -8109,13 +8109,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -8124,7 +8124,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -8200,7 +8200,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -8211,7 +8211,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -8231,7 +8231,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -8240,7 +8240,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -8249,7 +8249,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -8258,7 +8258,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -8279,7 +8279,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -8294,11 +8294,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -8325,7 +8325,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -8357,7 +8357,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -8412,7 +8412,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -8422,7 +8422,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -8436,7 +8436,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -8448,7 +8448,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -8511,7 +8511,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -8524,7 +8524,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -8545,7 +8545,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -8665,9 +8665,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -8695,13 +8695,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -8716,13 +8716,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -8731,7 +8731,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -8807,7 +8807,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -8818,7 +8818,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -8838,7 +8838,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -8847,7 +8847,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -8856,7 +8856,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -8865,7 +8865,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -8886,7 +8886,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -8901,11 +8901,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -8932,7 +8932,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -8964,7 +8964,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -9019,7 +9019,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -9029,7 +9029,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -9043,7 +9043,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -9055,7 +9055,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -9118,7 +9118,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -9131,7 +9131,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -9152,7 +9152,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -9272,9 +9272,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -9302,13 +9302,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -9323,13 +9323,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -9338,7 +9338,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -9414,7 +9414,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -9425,7 +9425,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -9445,7 +9445,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -9454,7 +9454,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -9463,7 +9463,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -9472,7 +9472,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -9493,7 +9493,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -9508,11 +9508,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -9539,7 +9539,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -9571,7 +9571,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -9626,7 +9626,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -9636,7 +9636,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -9650,7 +9650,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -9662,7 +9662,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -9725,7 +9725,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -9738,7 +9738,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -9759,7 +9759,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -9879,9 +9879,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -9909,13 +9909,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -9930,13 +9930,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -9945,7 +9945,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -10021,7 +10021,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -10032,7 +10032,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -10052,7 +10052,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -10061,7 +10061,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -10070,7 +10070,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -10079,7 +10079,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -10100,7 +10100,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -10115,11 +10115,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -10146,7 +10146,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -10178,7 +10178,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -10233,7 +10233,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -10243,7 +10243,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -10257,7 +10257,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -10269,7 +10269,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -10332,7 +10332,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -10345,7 +10345,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -10366,7 +10366,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -10486,9 +10486,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -10516,13 +10516,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -10537,13 +10537,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -10552,7 +10552,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -10628,7 +10628,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -10639,7 +10639,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -10659,7 +10659,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -10668,7 +10668,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -10677,7 +10677,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -10686,7 +10686,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -10707,7 +10707,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -10722,11 +10722,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -10753,7 +10753,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -10785,7 +10785,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -10840,7 +10840,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -10850,7 +10850,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -10864,7 +10864,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -10876,7 +10876,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -10939,7 +10939,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -10952,7 +10952,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -10973,7 +10973,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -11093,9 +11093,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -11123,13 +11123,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -11144,13 +11144,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -11159,7 +11159,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -11235,7 +11235,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -11246,7 +11246,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -11266,7 +11266,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -11275,7 +11275,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -11284,7 +11284,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -11293,7 +11293,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -11314,7 +11314,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -11329,11 +11329,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -11360,7 +11360,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -11392,7 +11392,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -11447,7 +11447,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -11457,7 +11457,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -11471,7 +11471,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -11483,7 +11483,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -11546,7 +11546,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -11559,7 +11559,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -11580,7 +11580,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -11700,9 +11700,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -11730,13 +11730,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -11751,13 +11751,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -11766,7 +11766,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -11842,7 +11842,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -11853,7 +11853,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -11873,7 +11873,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -11882,7 +11882,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -11891,7 +11891,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -11900,7 +11900,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -11921,7 +11921,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -11936,11 +11936,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -11967,7 +11967,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -11999,7 +11999,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -12054,7 +12054,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -12064,7 +12064,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -12078,7 +12078,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -12090,7 +12090,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -12153,7 +12153,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -12166,7 +12166,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -12187,7 +12187,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -12307,9 +12307,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -12337,13 +12337,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -12358,13 +12358,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -12373,7 +12373,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -12449,7 +12449,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -12460,7 +12460,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -12480,7 +12480,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -12489,7 +12489,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -12498,7 +12498,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -12507,7 +12507,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -12528,7 +12528,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -12543,11 +12543,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -12574,7 +12574,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -12606,7 +12606,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -12661,7 +12661,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -12671,7 +12671,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -12685,7 +12685,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -12697,7 +12697,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -12760,7 +12760,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -12773,7 +12773,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -12794,7 +12794,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -12914,9 +12914,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -12944,13 +12944,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -12965,13 +12965,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -12980,7 +12980,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -13056,7 +13056,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -13067,7 +13067,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -13087,7 +13087,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -13096,7 +13096,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -13105,7 +13105,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -13114,7 +13114,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -13135,7 +13135,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -13150,11 +13150,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -13181,7 +13181,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -13213,7 +13213,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -13268,7 +13268,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -13278,7 +13278,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -13292,7 +13292,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -13304,7 +13304,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -13367,7 +13367,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -13380,7 +13380,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -13401,7 +13401,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -13521,9 +13521,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -13551,13 +13551,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -13572,13 +13572,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -13587,7 +13587,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -13663,7 +13663,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -13674,7 +13674,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -13694,7 +13694,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -13703,7 +13703,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -13712,7 +13712,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -13721,7 +13721,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -13742,7 +13742,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -13757,11 +13757,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -13788,7 +13788,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -13820,7 +13820,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -13875,7 +13875,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -13885,7 +13885,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -13899,7 +13899,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -13911,7 +13911,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -13974,7 +13974,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -13987,7 +13987,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -14008,7 +14008,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -14128,9 +14128,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -14158,13 +14158,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -14179,13 +14179,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -14194,7 +14194,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -14270,7 +14270,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -14281,7 +14281,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -14301,7 +14301,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -14310,7 +14310,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -14319,7 +14319,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -14328,7 +14328,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -14349,7 +14349,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -14364,11 +14364,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -14395,7 +14395,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -14427,7 +14427,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -14482,7 +14482,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -14492,7 +14492,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -14506,7 +14506,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -14518,7 +14518,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -14581,7 +14581,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -14594,7 +14594,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -14615,7 +14615,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -14735,9 +14735,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -14765,13 +14765,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -14786,13 +14786,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -14801,7 +14801,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -14877,7 +14877,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -14888,7 +14888,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -14908,7 +14908,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -14917,7 +14917,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -14926,7 +14926,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -14935,7 +14935,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -14956,7 +14956,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -14971,11 +14971,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -15002,7 +15002,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -15034,7 +15034,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -15089,7 +15089,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -15099,7 +15099,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -15113,7 +15113,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -15125,7 +15125,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -15188,7 +15188,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -15201,7 +15201,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -15222,7 +15222,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -15342,9 +15342,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -15372,13 +15372,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -15393,13 +15393,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -15408,7 +15408,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -15484,7 +15484,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -15495,7 +15495,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -15515,7 +15515,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -15524,7 +15524,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -15533,7 +15533,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -15542,7 +15542,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -15563,7 +15563,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -15578,11 +15578,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -15609,7 +15609,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -15641,7 +15641,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -15696,7 +15696,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -15706,7 +15706,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -15720,7 +15720,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -15732,7 +15732,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -15795,7 +15795,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -15808,7 +15808,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -15829,7 +15829,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -15949,9 +15949,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -15979,13 +15979,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -16000,13 +16000,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -16015,7 +16015,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -16091,7 +16091,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -16102,7 +16102,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -16122,7 +16122,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -16131,7 +16131,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -16140,7 +16140,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -16149,7 +16149,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -16170,7 +16170,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -16185,11 +16185,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -16216,7 +16216,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -16248,7 +16248,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -16303,7 +16303,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -16313,7 +16313,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -16327,7 +16327,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -16339,7 +16339,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -16402,7 +16402,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -16415,7 +16415,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -16436,7 +16436,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -16556,9 +16556,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -16586,13 +16586,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -16607,13 +16607,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -16622,7 +16622,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -16698,7 +16698,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -16709,7 +16709,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -16729,7 +16729,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -16738,7 +16738,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -16747,7 +16747,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -16756,7 +16756,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -16777,7 +16777,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -16792,11 +16792,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -16823,7 +16823,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -16855,7 +16855,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -16910,7 +16910,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -16920,7 +16920,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -16934,7 +16934,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -16946,7 +16946,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -17009,7 +17009,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -17022,7 +17022,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -17043,7 +17043,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -17163,9 +17163,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -17193,13 +17193,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -17214,13 +17214,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -17229,7 +17229,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -17305,7 +17305,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -17316,7 +17316,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -17336,7 +17336,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -17345,7 +17345,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -17354,7 +17354,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -17363,7 +17363,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -17384,7 +17384,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -17399,11 +17399,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -17430,7 +17430,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -17462,7 +17462,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -17517,7 +17517,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -17527,7 +17527,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -17541,7 +17541,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -17553,7 +17553,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -17616,7 +17616,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -17629,7 +17629,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -17650,7 +17650,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -17770,9 +17770,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -17800,13 +17800,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -17821,13 +17821,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -17836,7 +17836,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -17912,7 +17912,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -17923,7 +17923,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -17943,7 +17943,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -17952,7 +17952,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -17961,7 +17961,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -17970,7 +17970,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -17991,7 +17991,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -18006,11 +18006,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -18037,7 +18037,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -18069,7 +18069,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -18124,7 +18124,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -18134,7 +18134,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -18148,7 +18148,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -18160,7 +18160,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -18223,7 +18223,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -18236,7 +18236,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -18257,7 +18257,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -18377,9 +18377,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -18407,13 +18407,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -18428,13 +18428,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -18443,7 +18443,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -18519,7 +18519,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -18530,7 +18530,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -18550,7 +18550,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -18559,7 +18559,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -18568,7 +18568,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -18577,7 +18577,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -18598,7 +18598,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -18613,11 +18613,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -18644,7 +18644,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -18676,7 +18676,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -18731,7 +18731,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -18741,7 +18741,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -18755,7 +18755,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -18767,7 +18767,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -18830,7 +18830,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -18843,7 +18843,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -18864,7 +18864,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -18984,9 +18984,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -19014,13 +19014,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -19035,13 +19035,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -19050,7 +19050,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -19126,7 +19126,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -19137,7 +19137,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -19157,7 +19157,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -19166,7 +19166,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -19175,7 +19175,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -19184,7 +19184,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -19205,7 +19205,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -19220,11 +19220,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -19251,7 +19251,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -19283,7 +19283,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -19338,7 +19338,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -19348,7 +19348,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -19362,7 +19362,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -19374,7 +19374,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -19437,7 +19437,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -19450,7 +19450,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -19471,7 +19471,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -19591,9 +19591,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -19621,13 +19621,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -19642,13 +19642,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -19657,7 +19657,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -19733,7 +19733,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -19744,7 +19744,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -19764,7 +19764,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -19773,7 +19773,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -19782,7 +19782,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -19791,7 +19791,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -19812,7 +19812,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -19827,11 +19827,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -19858,7 +19858,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -19890,7 +19890,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -19945,7 +19945,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -19955,7 +19955,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -19969,7 +19969,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -19981,7 +19981,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -20044,7 +20044,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -20057,7 +20057,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -20078,7 +20078,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -20198,9 +20198,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -20228,13 +20228,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -20249,13 +20249,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -20264,7 +20264,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -20340,7 +20340,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -20351,7 +20351,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -20371,7 +20371,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -20380,7 +20380,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -20389,7 +20389,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -20398,7 +20398,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -20419,7 +20419,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -20434,11 +20434,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -20465,7 +20465,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -20497,7 +20497,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -20552,7 +20552,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -20562,7 +20562,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -20576,7 +20576,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -20588,7 +20588,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -20651,7 +20651,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -20664,7 +20664,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -20685,7 +20685,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -20805,9 +20805,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -20835,13 +20835,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -20856,13 +20856,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -20871,7 +20871,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -20947,7 +20947,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -20958,7 +20958,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -20978,7 +20978,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -20987,7 +20987,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -20996,7 +20996,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -21005,7 +21005,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -21026,7 +21026,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -21041,11 +21041,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -21072,7 +21072,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -21104,7 +21104,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -21159,7 +21159,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -21169,7 +21169,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -21183,7 +21183,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -21195,7 +21195,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -21258,7 +21258,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -21271,7 +21271,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -21292,7 +21292,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -21412,9 +21412,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -21442,13 +21442,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -21463,13 +21463,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -21478,7 +21478,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -21554,7 +21554,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -21565,7 +21565,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -21585,7 +21585,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -21594,7 +21594,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -21603,7 +21603,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -21612,7 +21612,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -21633,7 +21633,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -21648,11 +21648,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -21679,7 +21679,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -21711,7 +21711,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -21766,7 +21766,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -21776,7 +21776,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -21790,7 +21790,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -21802,7 +21802,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -21865,7 +21865,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -21878,7 +21878,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -21899,7 +21899,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -22019,9 +22019,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -22049,13 +22049,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -22070,13 +22070,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -22085,7 +22085,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -22161,7 +22161,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -22172,7 +22172,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -22192,7 +22192,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -22201,7 +22201,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -22210,7 +22210,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -22219,7 +22219,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -22240,7 +22240,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -22255,11 +22255,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -22286,7 +22286,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -22318,7 +22318,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -22373,7 +22373,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -22383,7 +22383,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -22397,7 +22397,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -22409,7 +22409,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -22472,7 +22472,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -22485,7 +22485,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -22506,7 +22506,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -22626,9 +22626,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -22656,13 +22656,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -22677,13 +22677,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -22692,7 +22692,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -22768,7 +22768,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -22779,7 +22779,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -22799,7 +22799,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -22808,7 +22808,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -22817,7 +22817,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -22826,7 +22826,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -22847,7 +22847,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -22862,11 +22862,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -22893,7 +22893,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -22925,7 +22925,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -22980,7 +22980,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -22990,7 +22990,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -23004,7 +23004,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -23016,7 +23016,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -23079,7 +23079,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -23092,7 +23092,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -23113,7 +23113,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -23233,9 +23233,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -23263,13 +23263,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -23284,13 +23284,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -23299,7 +23299,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -23375,7 +23375,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -23386,7 +23386,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -23406,7 +23406,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -23415,7 +23415,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -23424,7 +23424,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -23433,7 +23433,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -23454,7 +23454,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -23469,11 +23469,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -23500,7 +23500,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -23532,7 +23532,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -23587,7 +23587,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -23597,7 +23597,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -23611,7 +23611,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -23623,7 +23623,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -23686,7 +23686,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -23699,7 +23699,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -23720,7 +23720,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -23840,9 +23840,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -23870,13 +23870,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -23891,13 +23891,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -23906,7 +23906,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -23982,7 +23982,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -23993,7 +23993,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -24013,7 +24013,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -24022,7 +24022,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -24031,7 +24031,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -24040,7 +24040,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -24061,7 +24061,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -24076,11 +24076,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -24107,7 +24107,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -24139,7 +24139,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -24194,7 +24194,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -24204,7 +24204,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -24218,7 +24218,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -24230,7 +24230,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -24293,7 +24293,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -24306,7 +24306,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -24327,7 +24327,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -24447,9 +24447,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -24477,13 +24477,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -24498,13 +24498,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -24513,7 +24513,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -24589,7 +24589,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -24600,7 +24600,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -24620,7 +24620,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -24629,7 +24629,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -24638,7 +24638,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -24647,7 +24647,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -24668,7 +24668,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -24683,11 +24683,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -24714,7 +24714,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -24746,7 +24746,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -24801,7 +24801,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -24811,7 +24811,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -24825,7 +24825,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -24837,7 +24837,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -24900,7 +24900,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -24913,7 +24913,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -24934,7 +24934,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -25054,9 +25054,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -25084,13 +25084,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -25105,13 +25105,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -25120,7 +25120,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -25196,7 +25196,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -25207,7 +25207,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -25227,7 +25227,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -25236,7 +25236,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -25245,7 +25245,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -25254,7 +25254,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -25275,7 +25275,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -25290,11 +25290,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -25321,7 +25321,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -25353,7 +25353,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -25408,7 +25408,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -25418,7 +25418,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -25432,7 +25432,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -25444,7 +25444,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -25507,7 +25507,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -25520,7 +25520,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -25541,7 +25541,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -25661,9 +25661,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -25691,13 +25691,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -25712,13 +25712,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -25727,7 +25727,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -25803,7 +25803,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -25814,7 +25814,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -25834,7 +25834,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -25843,7 +25843,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -25852,7 +25852,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -25861,7 +25861,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -25882,7 +25882,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -25897,11 +25897,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -25928,7 +25928,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -25960,7 +25960,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -26015,7 +26015,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -26025,7 +26025,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -26039,7 +26039,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -26051,7 +26051,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -26114,7 +26114,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -26127,7 +26127,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -26148,7 +26148,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -26268,9 +26268,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -26298,13 +26298,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -26319,13 +26319,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -26334,7 +26334,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -26410,7 +26410,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -26421,7 +26421,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -26441,7 +26441,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -26450,7 +26450,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -26459,7 +26459,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -26468,7 +26468,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -26489,7 +26489,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -26504,11 +26504,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -26535,7 +26535,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -26567,7 +26567,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -26622,7 +26622,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -26632,7 +26632,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -26646,7 +26646,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -26658,7 +26658,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -26721,7 +26721,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -26734,7 +26734,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -26755,7 +26755,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -26875,9 +26875,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -26905,13 +26905,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -26926,13 +26926,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -26941,7 +26941,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -27017,7 +27017,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -27028,7 +27028,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -27048,7 +27048,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -27057,7 +27057,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -27066,7 +27066,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -27075,7 +27075,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -27096,7 +27096,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -27111,11 +27111,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -27142,7 +27142,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -27174,7 +27174,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -27229,7 +27229,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -27239,7 +27239,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -27253,7 +27253,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -27265,7 +27265,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -27328,7 +27328,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -27341,7 +27341,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -27362,7 +27362,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -27482,9 +27482,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -27512,13 +27512,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -27533,13 +27533,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -27548,7 +27548,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -27624,7 +27624,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -27635,7 +27635,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -27655,7 +27655,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -27664,7 +27664,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -27673,7 +27673,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -27682,7 +27682,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -27703,7 +27703,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -27718,11 +27718,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -27749,7 +27749,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -27781,7 +27781,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -27836,7 +27836,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -27846,7 +27846,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -27860,7 +27860,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -27872,7 +27872,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -27935,7 +27935,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -27948,7 +27948,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -27969,7 +27969,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -28089,9 +28089,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -28119,13 +28119,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -28140,13 +28140,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -28155,7 +28155,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -28231,7 +28231,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -28242,7 +28242,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -28262,7 +28262,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -28271,7 +28271,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -28280,7 +28280,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -28289,7 +28289,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -28310,7 +28310,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -28325,11 +28325,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -28356,7 +28356,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -28388,7 +28388,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -28443,7 +28443,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -28453,7 +28453,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -28467,7 +28467,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -28479,7 +28479,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -28542,7 +28542,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -28555,7 +28555,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -28576,7 +28576,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -28696,9 +28696,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -28726,13 +28726,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -28747,13 +28747,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -28762,7 +28762,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -28838,7 +28838,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -28849,7 +28849,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -28869,7 +28869,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -28878,7 +28878,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -28887,7 +28887,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -28896,7 +28896,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -28917,7 +28917,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -28932,11 +28932,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -28963,7 +28963,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -28995,7 +28995,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -29050,7 +29050,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -29060,7 +29060,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -29074,7 +29074,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -29086,7 +29086,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -29149,7 +29149,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -29162,7 +29162,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -29183,7 +29183,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -29303,9 +29303,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -29333,13 +29333,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -29354,13 +29354,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -29369,7 +29369,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -29445,7 +29445,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -29456,7 +29456,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -29476,7 +29476,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -29485,7 +29485,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -29494,7 +29494,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -29503,7 +29503,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -29524,7 +29524,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -29539,11 +29539,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -29570,7 +29570,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -29602,7 +29602,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -29657,7 +29657,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -29667,7 +29667,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -29681,7 +29681,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -29693,7 +29693,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -29756,7 +29756,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -29769,7 +29769,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -29790,7 +29790,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -29910,9 +29910,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -29940,13 +29940,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -29961,13 +29961,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -29976,7 +29976,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -30052,7 +30052,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -30063,7 +30063,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -30083,7 +30083,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -30092,7 +30092,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -30101,7 +30101,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -30110,7 +30110,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -30131,7 +30131,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -30146,11 +30146,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -30177,7 +30177,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -30209,7 +30209,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -30264,7 +30264,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -30274,7 +30274,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -30288,7 +30288,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -30300,7 +30300,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -30363,7 +30363,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -30376,7 +30376,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -30397,7 +30397,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -30517,9 +30517,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -30547,13 +30547,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -30568,13 +30568,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -30583,7 +30583,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -30659,7 +30659,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -30670,7 +30670,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -30690,7 +30690,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -30699,7 +30699,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -30708,7 +30708,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -30717,7 +30717,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -30738,7 +30738,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -30753,11 +30753,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -30784,7 +30784,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -30816,7 +30816,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -30871,7 +30871,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -30881,7 +30881,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -30895,7 +30895,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -30907,7 +30907,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -30970,7 +30970,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -30983,7 +30983,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -31004,7 +31004,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -31124,9 +31124,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -31154,13 +31154,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -31175,13 +31175,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -31190,7 +31190,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -31266,7 +31266,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -31277,7 +31277,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -31297,7 +31297,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -31306,7 +31306,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -31315,7 +31315,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -31324,7 +31324,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -31345,7 +31345,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -31360,11 +31360,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -31391,7 +31391,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -31423,7 +31423,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -31478,7 +31478,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -31488,7 +31488,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -31502,7 +31502,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -31514,7 +31514,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -31577,7 +31577,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -31590,7 +31590,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -31611,7 +31611,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -31731,9 +31731,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -31761,13 +31761,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -31782,13 +31782,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -31797,7 +31797,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -31873,7 +31873,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -31884,7 +31884,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -31904,7 +31904,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -31913,7 +31913,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -31922,7 +31922,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -31931,7 +31931,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -31952,7 +31952,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -31967,11 +31967,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -31998,7 +31998,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -32030,7 +32030,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -32085,7 +32085,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -32095,7 +32095,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -32109,7 +32109,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -32121,7 +32121,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -32184,7 +32184,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -32197,7 +32197,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -32218,7 +32218,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -32338,9 +32338,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -32368,13 +32368,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -32389,13 +32389,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -32404,7 +32404,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -32480,7 +32480,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -32491,7 +32491,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -32511,7 +32511,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -32520,7 +32520,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -32529,7 +32529,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -32538,7 +32538,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -32559,7 +32559,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -32574,11 +32574,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -32605,7 +32605,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -32637,7 +32637,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -32692,7 +32692,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -32702,7 +32702,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -32716,7 +32716,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -32728,7 +32728,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -32791,7 +32791,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -32804,7 +32804,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -32825,7 +32825,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -32945,9 +32945,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -32975,13 +32975,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -32996,13 +32996,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -33011,7 +33011,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -33087,7 +33087,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -33098,7 +33098,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -33118,7 +33118,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -33127,7 +33127,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -33136,7 +33136,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -33145,7 +33145,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -33166,7 +33166,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -33181,11 +33181,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -33212,7 +33212,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -33244,7 +33244,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -33299,7 +33299,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -33309,7 +33309,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -33323,7 +33323,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -33335,7 +33335,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -33398,7 +33398,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -33411,7 +33411,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -33432,7 +33432,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -33552,9 +33552,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -33582,13 +33582,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -33603,13 +33603,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -33618,7 +33618,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -33694,7 +33694,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -33705,7 +33705,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -33725,7 +33725,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -33734,7 +33734,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -33743,7 +33743,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -33752,7 +33752,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -33773,7 +33773,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -33788,11 +33788,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -33819,7 +33819,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -33851,7 +33851,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -33906,7 +33906,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -33916,7 +33916,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -33930,7 +33930,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -33942,7 +33942,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -34005,7 +34005,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -34018,7 +34018,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -34039,7 +34039,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -34159,9 +34159,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -34189,13 +34189,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -34210,13 +34210,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -34225,7 +34225,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -34301,7 +34301,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -34312,7 +34312,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -34332,7 +34332,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -34341,7 +34341,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -34350,7 +34350,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -34359,7 +34359,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -34380,7 +34380,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -34395,11 +34395,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -34426,7 +34426,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -34458,7 +34458,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -34513,7 +34513,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -34523,7 +34523,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -34537,7 +34537,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -34549,7 +34549,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -34612,7 +34612,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -34625,7 +34625,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -34646,7 +34646,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -34766,9 +34766,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -34796,13 +34796,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -34817,13 +34817,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -34832,7 +34832,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -34908,7 +34908,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -34919,7 +34919,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -34939,7 +34939,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -34948,7 +34948,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -34957,7 +34957,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -34966,7 +34966,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -34987,7 +34987,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -35002,11 +35002,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -35033,7 +35033,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -35065,7 +35065,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -35120,7 +35120,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -35130,7 +35130,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -35144,7 +35144,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -35156,7 +35156,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -35219,7 +35219,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -35232,7 +35232,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -35253,7 +35253,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -35373,9 +35373,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -35403,13 +35403,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -35424,13 +35424,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -35439,7 +35439,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -35515,7 +35515,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -35526,7 +35526,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -35546,7 +35546,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -35555,7 +35555,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -35564,7 +35564,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -35573,7 +35573,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -35594,7 +35594,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -35609,11 +35609,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -35640,7 +35640,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -35672,7 +35672,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -35727,7 +35727,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -35737,7 +35737,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -35751,7 +35751,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -35763,7 +35763,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
@@ -35826,7 +35826,7 @@ from fastapi import UploadFile, HTTPException
 
 
 def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
-    """从指定列提取关键词（去重）"""
+    """从指定列提取关键词(去重)"""
     if column_name not in df.columns:
         return set()
     
@@ -35839,7 +35839,7 @@ def extract_keywords_from_column(df: pd.DataFrame, column_name: str) -> set:
 
 def word_boundary_match(text: str, pattern: str) -> bool:
     """
-    单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+    单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
     参考用户版本实现
     """
     if not text or not pattern:
@@ -35860,7 +35860,7 @@ def word_boundary_match(text: str, pattern: str) -> bool:
 
 def contains_all_words(text: str, words: List[str]) -> bool:
     """
-    检查文本是否包含所有指定的词（单词级匹配）
+    检查文本是否包含所有指定的词(单词级匹配)
     
     参数:
     - text: 要检查的文本
@@ -35980,9 +35980,9 @@ async def process_h10_analysis(
             # 尝试读取 Excel 文件
             excel_file = pd.ExcelFile(io.BytesIO(content))
             
-            # 如果有多个工作表，读取第一个（或根据名称匹配）
+            # 如果有多个工作表，读取第一个(或根据名称匹配)
             if key == "竞对ABA热搜词反查":
-                # ✅ 严格按照需求：查找"多asin反查流量"工作表（精确匹配）
+                # ✅ 严格按照需求：查找"多asin反查流量"工作表(精确匹配)
                 sheet_name = None
                 for sheet in excel_file.sheet_names:
                     if sheet == "多asin反查流量" or sheet == "多ASIN反查流量":
@@ -36010,13 +36010,13 @@ async def process_h10_analysis(
     # 步骤 3: 执行处理逻辑
     h10_df = dataframes["H10反查总表"].copy()
     
-    # 第一部分：AN 列标记（A-F 优先级）
+    # 第一部分：AN 列标记(A-F 优先级)
     h10_df = process_part1_an_column(h10_df, dataframes)
     
-    # 第二部分：AO 列标记（词类型分类）
+    # 第二部分：AO 列标记(词类型分类)
     h10_df = process_part2_ao_column(h10_df, dataframes)
     
-    # 第三部分：AP 列标记（流量等级）
+    # 第三部分：AP 列标记(流量等级)
     h10_df = process_part3_ap_column(h10_df)
     
     # 步骤 4: 输出结果
@@ -36031,13 +36031,13 @@ async def process_h10_analysis(
 
 def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第一部分：AN 列标记（A-F 优先级）
+    第一部分：AN 列标记(A-F 优先级)
     
     优先级从高到低：F > E > D > C > B > A
     """
     print("📝 第一部分：处理 AN 列标记...")
     
-    # 查找关键词词组列（通常是第一列或包含"关键词"的列）
+    # 查找关键词词组列(通常是第一列或包含"关键词"的列)
     keyword_col = None
     for col in h10_df.columns:
         if "关键词" in str(col) or "词组" in str(col):
@@ -36046,7 +36046,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     if not keyword_col:
         keyword_col = h10_df.columns[0]  # 默认第一列
     
-    # 初始化 AN 列（如果不存在，在关键词列右侧插入；使用中文名称"关键词类别"）
+    # 初始化 AN 列(如果不存在，在关键词列右侧插入；使用中文名称"关键词类别")
     an_col_name = "关键词类别"
     if an_col_name not in h10_df.columns:
         keyword_col_index = h10_df.columns.get_loc(keyword_col)
@@ -36122,7 +36122,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             "natural_rank": natural_rank
                         }
     
-    # 标记 AN 列（严格按照用户需求，优先级：F > E > D > C > B > A）
+    # 标记 AN 列(严格按照用户需求，优先级：F > E > D > C > B > A)
     print(f"  收集到的关键词数量: 自身ASIN={len(self_asin_keywords)}, ABA={len(aba_keywords)}, 竞品={len(competitor_keywords_data)}")
     
     for idx, row in h10_df.iterrows():
@@ -36133,7 +36133,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 严格按照用户需求的优先级顺序检查
         
-        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F（最高优先级）
+        # 规则 1: 如果关键词在自身ASIN反查中出现 -> F(最高优先级)
         if keyword in self_asin_keywords:
             h10_df.at[idx, an_col_name] = "F"
             continue
@@ -36153,7 +36153,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             has_b_condition = False
             has_a_condition = False
             
-            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            # D条件：广告排名和自然排名都<=20(任意一个竞品满足即可)
             for comp_name, ranks in comp_data.items():
                 ad_rank = ranks.get("ad_rank")
                 natural_rank = ranks.get("natural_rank")
@@ -36162,7 +36162,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                     break  # D优先级最高，找到就停止
             
             if not has_d_condition:
-                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                # C条件：仅自然排名<=20(广告排名需大于20或无值，任意一个竞品满足即可)
                 for comp_name, ranks in comp_data.items():
                     ad_rank = ranks.get("ad_rank")
                     natural_rank = ranks.get("natural_rank")
@@ -36171,7 +36171,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                         break  # C优先级高于B和A
                 
                 if not has_c_condition:
-                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    # B条件：仅广告排名<=20(自然排名需大于20或无值，任意一个竞品满足即可)
                     for comp_name, ranks in comp_data.items():
                         ad_rank = ranks.get("ad_rank")
                         natural_rank = ranks.get("natural_rank")
@@ -36180,7 +36180,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
                             break  # B优先级高于A
                     
                     if not has_b_condition:
-                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值(所有竞品都要满足)
                         all_a_condition = True
                         for comp_name, ranks in comp_data.items():
                             ad_rank = ranks.get("ad_rank")
@@ -36201,7 +36201,7 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
             elif has_a_condition:
                 h10_df.at[idx, an_col_name] = "A"
             else:
-                # 如果都不满足，标记为A（保险）
+                # 如果都不满足，标记为A(保险)
                 h10_df.at[idx, an_col_name] = "A"
         else:
             # 规则 6: 如果关键词在竞品1-10中未出现 -> A
@@ -36216,11 +36216,11 @@ def process_part1_an_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
-    第二部分：AO 列标记（词类型分类）
+    第二部分：AO 列标记(词类型分类)
     """
     print("📝 第二部分：处理 AO 列标记...")
     
-    # 初始化 AO 列（使用中文名称"相关性分类"）
+    # 初始化 AO 列(使用中文名称"相关性分类")
     ao_col_name = "相关性分类"
     if ao_col_name not in h10_df.columns:
         # 找到关键词类别列的位置，在其右侧插入
@@ -36247,7 +36247,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
     
     tuoci_df = dataframes["拓词基础表"]
     
-    # 提取各列的值（作为完整词匹配）
+    # 提取各列的值(作为完整词匹配)
     col_a_values = []  # A列
     col_b_values = []  # B列
     col_c_values = []  # C列
@@ -36279,7 +36279,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
         
         # ✅ 参考用户版本：先计算has_xxx，然后按优先级判断
         
-        # 单词级匹配：确保匹配值作为独立词出现（不被其它字母数字连在一起）
+        # 单词级匹配：确保匹配值作为独立词出现(不被其它字母数字连在一起)
         def contains_any(values):
             text = keyword.lower()
             for val in values:
@@ -36334,7 +36334,7 @@ def process_part2_ao_column(h10_df: pd.DataFrame, dataframes: Dict[str, pd.DataF
 
 def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
-    第三部分：AP 列标记（流量等级）
+    第三部分：AP 列标记(流量等级)
     
     根据搜索量累计百分比标记：
     - 高流量词1: 0-40%
@@ -36344,7 +36344,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
     """
     print("📝 第三部分：处理 AP 列标记...")
     
-    # 初始化 AP 列（使用中文名称"流量大小分类"）
+    # 初始化 AP 列(使用中文名称"流量大小分类")
     ap_col_name = "流量大小分类"
     if ap_col_name not in h10_df.columns:
         # 找到相关性分类列的位置，在其右侧插入
@@ -36358,7 +36358,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
         # 如果已存在，清空或保持
         h10_df[ap_col_name] = h10_df[ap_col_name].fillna("")
     
-    # 查找搜索量列（D列，索引3）
+    # 查找搜索量列(D列，索引3)
     search_volume_col = None
     if len(h10_df.columns) > 3:
         search_volume_col = h10_df.columns[3]  # D列
@@ -36370,7 +36370,7 @@ def process_part3_ap_column(h10_df: pd.DataFrame) -> pd.DataFrame:
                 break
     
     if not search_volume_col:
-        print("  ⚠️ 警告: 未找到搜索量列（D列），跳过 AP 列标记")
+        print("  ⚠️ 警告: 未找到搜索量列(D列)，跳过 AP 列标记")
         return h10_df
     
     # 提取搜索量并转换为数值
