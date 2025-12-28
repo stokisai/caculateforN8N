@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { useMemo, useState } from "react";
 import { LogOut, Upload, FileText, CheckCircle, Loader2, Copy } from "lucide-react";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 export default function DashboardClient({ services, user }: any) {
   const [selectedService, setSelectedService] = useState<any>(null);
@@ -13,11 +13,8 @@ export default function DashboardClient({ services, user }: any) {
   // 新增：用来存储 n8n 返回的文字内容
   const [resultContent, setResultContent] = useState("");
 
-  // 初始化客户端 Supabase
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  // 使用集中式 Supabase 客户端
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
