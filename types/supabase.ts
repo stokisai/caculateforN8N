@@ -4,159 +4,165 @@ export type Json =
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
 export type Database = {
   public: {
     Tables: {
-      profiles: {
-        Row: {
-          id: string;
-          email: string | null;
-          phone: string | null;
-          created_at: string;
-          updated_at: string | null;
-        };
-        Insert: {
-          id: string;
-          email?: string | null;
-          phone?: string | null;
-          created_at?: string;
-          updated_at?: string | null;
-        };
-        Update: {
-          id?: string;
-          email?: string | null;
-          phone?: string | null;
-          created_at?: string;
-          updated_at?: string | null;
-        };
-      };
-      services: {
-        Row: {
-          id: string;
-          title: string;
-          description: string;
-          image_url: string | null;
-          webhook_url: string;
-          input_type: "file" | "text" | "both";
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          title: string;
-          description: string;
-          image_url?: string | null;
-          webhook_url: string;
-          input_type: "file" | "text" | "both";
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          title?: string;
-          description?: string;
-          image_url?: string | null;
-          webhook_url?: string;
-          input_type?: "file" | "text" | "both";
-          created_at?: string;
-        };
-      };
-      tasks: {
-        Row: {
-          id: string;
-          user_id: string;
-          service_id: string;
-          input_text: string | null;
-          file_url: string | null;
-          status: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          service_id: string;
-          input_text?: string | null;
-          file_url?: string | null;
-          status?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          service_id?: string;
-          input_text?: string | null;
-          file_url?: string | null;
-          status?: string | null;
-          created_at?: string;
-        };
-      };
-      keyword_tasks: {
-        Row: {
-          id: string;
-          user_id: string;
-          status: "pending" | "processing" | "success" | "failed";
-          progress: number;
-          result_url: string | null;
-          error_msg: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          status?: "pending" | "processing" | "success" | "failed";
-          progress?: number;
-          result_url?: string | null;
-          error_msg?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          status?: "pending" | "processing" | "success" | "failed";
-          progress?: number;
-          result_url?: string | null;
-          error_msg?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
       keyword_task_files: {
         Row: {
-          id: string;
-          task_id: string;
-          file_type: KeywordFileType;
-          file_name: string;
-          storage_path: string;
-          file_size: number | null;
-          created_at: string;
-        };
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string
+          id: string
+          storage_path: string
+          task_id: string
+        }
         Insert: {
-          id?: string;
-          task_id: string;
-          file_type: KeywordFileType;
-          file_name: string;
-          storage_path: string;
-          file_size?: number | null;
-          created_at?: string;
-        };
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          storage_path: string
+          task_id: string
+        }
         Update: {
-          id?: string;
-          task_id?: string;
-          file_type?: KeywordFileType;
-          file_name?: string;
-          storage_path?: string;
-          file_size?: number | null;
-          created_at?: string;
-        };
-      };
-    };
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          storage_path?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "keyword_task_files_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "keyword_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      keyword_tasks: {
+        Row: {
+          created_at: string
+          error_msg: string | null
+          id: string
+          progress: number | null
+          result_url: string | null
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_msg?: string | null
+          id?: string
+          progress?: number | null
+          result_url?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_msg?: string | null
+          id?: string
+          progress?: number | null
+          result_url?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      services: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          input_type: string
+          title: string
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          input_type: string
+          title: string
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          input_type?: string
+          title?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          created_at: string
+          file_url: string | null
+          id: string
+          input_text: string | null
+          service_id: string
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          input_text?: string | null
+          service_id: string
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          input_text?: string | null
+          service_id?: string
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
     Enums: {
-      [_ in never]: never;
-    };
-  };
-};
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
 
 // 关键词文件类型
 export type KeywordFileType = 
@@ -178,4 +184,3 @@ export type KeywordFileType =
 export type Service = Database["public"]["Tables"]["services"]["Row"];
 export type KeywordTask = Database["public"]["Tables"]["keyword_tasks"]["Row"];
 export type KeywordTaskFile = Database["public"]["Tables"]["keyword_task_files"]["Row"];
-
