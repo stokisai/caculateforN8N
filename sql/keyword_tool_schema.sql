@@ -5,7 +5,7 @@
 -- 关键词任务表
 create table if not exists public.keyword_tasks (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
   status text default 'pending' check (status in ('pending', 'processing', 'success', 'failed')),
   progress integer default 0 check (progress >= 0 and progress <= 100),
   result_url text,
