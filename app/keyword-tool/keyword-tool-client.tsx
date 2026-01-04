@@ -581,14 +581,16 @@ function TaskHistoryCard({
     });
   };
 
+  const status = task.status ?? "pending";
+  
   return (
     <div className="bg-slate-700/30 rounded-lg p-3">
       <div className="flex justify-between items-start mb-2">
         <span className="text-xs text-slate-400">{formatDate(task.created_at)}</span>
-        <StatusBadge status={task.status} />
+        <StatusBadge status={status} />
       </div>
       
-      {task.status === "success" && task.result_url && (
+      {status === "success" && task.result_url && (
         <button
           onClick={() => onDownload(task.id)}
           className="w-full mt-2 py-2 bg-slate-600 hover:bg-slate-500 text-slate-200 text-sm rounded-lg flex items-center justify-center gap-2 transition-colors"
@@ -598,16 +600,16 @@ function TaskHistoryCard({
         </button>
       )}
       
-      {task.status === "failed" && task.error_msg && (
+      {status === "failed" && task.error_msg && (
         <p className="mt-2 text-xs text-red-400 line-clamp-2">{task.error_msg}</p>
       )}
       
-      {task.status === "processing" && (
+      {status === "processing" && (
         <div className="mt-2">
           <div className="w-full bg-slate-600 rounded-full h-1.5">
             <div 
               className="bg-amber-400 h-1.5 rounded-full transition-all"
-              style={{ width: `${task.progress}%` }}
+              style={{ width: `${task.progress ?? 0}%` }}
             />
           </div>
         </div>
