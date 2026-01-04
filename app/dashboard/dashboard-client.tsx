@@ -132,6 +132,21 @@ export default function DashboardClient({ services, user }: any) {
 
       {/* 服务卡片网格 */}
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* 关键词词库搭建工具 - 专属卡片 */}
+        <a
+          href="/keyword-tool"
+          className="group bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-6 border border-emerald-200 shadow-sm hover:shadow-lg hover:border-emerald-400 cursor-pointer transition-all"
+        >
+          <div className="h-40 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-lg mb-4 overflow-hidden relative flex items-center justify-center">
+            <div className="text-6xl">📊</div>
+          </div>
+          <h3 className="text-xl font-semibold text-slate-900 mb-2">关键词词库搭建工具</h3>
+          <p className="text-slate-500 text-sm line-clamp-2">上传14个Excel文件，自动对关键词进行分类标记（关键词类别、相关性分类、流量大小分类）</p>
+          <div className="mt-4 flex items-center text-emerald-600 font-medium text-sm group-hover:translate-x-1 transition-transform">
+            立即使用 &rarr;
+          </div>
+        </a>
+
         {services.map((service: any) => (
           <div
             key={service.id}

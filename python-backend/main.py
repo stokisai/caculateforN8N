@@ -2027,3 +2027,129 @@ RULE = """
 5. 如无法确认某信息是否属于关键词，必须视为不相关并排除。
 """
 
+
+# ============================================
+# 关键词词库搭建工具 API 端点
+# ============================================
+
+from services.keyword_processor import KeywordProcessor
+
+# 文件类型映射
+KEYWORD_FILE_TYPES = [
+    "h10_main", "self_asin", "competitor_aba",
+    "competitor_1", "competitor_2", "competitor_3", "competitor_4", "competitor_5",
+    "competitor_6", "competitor_7", "competitor_8", "competitor_9", "competitor_10",
+    "keyword_base"
+]
+
+
+@app.post("/api/keyword-tool/process")
+async def process_keyword_task(task_id: str = Form(...)):
+    """
+    处理关键词分类任务
+    从 Supabase Storage 读取文件，处理后上传结果
+    """
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase 未配置")
+    
+    try:
+        # 1. 更新任务状态为处理中
+        supabase.table("keyword_tasks").update({
+            "status": "processing",
+            "progress": 5
+        }).eq("id", task_id).execute()
+        
+        # 2. 获取任务文件列表
+        files_response = supabase.table("keyword_task_files").select("*").eq("task_id", task_id).execute()
+        files_data = {f["file_type"]: f for f in files_response.data}
+        
+        # 3. 下载所有文件
+        file_contents = {}
+        
+        def update_progress(progress: int, message: str = ""):
+            try:
+                supabase.table("keyword_tasks").update({
+                    "progress": progress
+                }).eq("id", task_id).execute()
+            except:
+                pass
+        
+        for file_type in KEYWORD_FILE_TYPES:
+            if file_type in files_data:
+                file_info = files_data[file_type]
+                try:
+                    response = supabase.storage.from_("keyword-files").download(file_info["storage_path"])
+                    file_contents[file_type] = response
+                except Exception as e:
+                    print(f"下载文件失败 {file_type}: {str(e)}")
+        
+        update_progress(30, "文件下载完成")
+        
+        # 4. 验证必需文件
+        required_files = ["h10_main", "self_asin", "competitor_aba", "keyword_base"]
+        missing = [f for f in required_files if f not in file_contents]
+        if missing:
+            raise ValueError(f"缺少必需文件: {', '.join(missing)}")
+        
+        # 5. 处理关键词
+        processor = KeywordProcessor()
+        processor.set_progress_callback(update_progress)
+        
+        # 获取竞品文件列表
+        competitors = []
+        for i in range(1, 11):
+            comp_key = f"competitor_{i}"
+            if comp_key in file_contents:
+                competitors.append(file_contents[comp_key])
+        
+        result_content = processor.process(
+            h10_main=file_contents["h10_main"],
+            self_asin=file_contents["self_asin"],
+            competitor_aba=file_contents["competitor_aba"],
+            competitors=competitors,
+            keyword_base=file_contents["keyword_base"]
+        )
+        
+        # 6. 上传结果文件
+        result_path = f"{task_id}/result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        supabase.storage.from_("keyword-files").upload(
+            result_path,
+            result_content,
+            {"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+        )
+        
+        # 7. 更新任务状态为成功
+        supabase.table("keyword_tasks").update({
+            "status": "success",
+            "progress": 100,
+            "result_url": result_path
+        }).eq("id", task_id).execute()
+        
+        return JSONResponse({"success": True, "result_url": result_path})
+        
+    except Exception as e:
+        print(f"❌ 关键词处理失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # 更新任务状态为失败
+        if supabase:
+            supabase.table("keyword_tasks").update({
+                "status": "failed",
+                "error_msg": str(e)
+            }).eq("id", task_id).execute()
+        
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/keyword-tool/task/{task_id}")
+async def get_keyword_task_status(task_id: str):
+    """获取关键词任务状态"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase 未配置")
+    
+    try:
+        response = supabase.table("keyword_tasks").select("*").eq("id", task_id).single().execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"任务不存在: {str(e)}")
