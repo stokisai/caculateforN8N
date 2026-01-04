@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import type { KeywordTask } from "@/types/supabase";
 
 export async function GET(
   request: NextRequest,
@@ -16,16 +17,18 @@ export async function GET(
     }
 
     // 获取任务信息（验证归属和状态）
-    const { data: task, error } = await supabase
+    const { data, error } = await supabase
       .from("keyword_tasks")
       .select("*")
       .eq("id", taskId)
       .eq("user_id", user.id)
       .single();
 
-    if (error || !task) {
+    if (error || !data) {
       return NextResponse.json({ error: "任务不存在或无权访问" }, { status: 404 });
     }
+
+    const task = data as KeywordTask;
 
     if (task.status !== "success" || !task.result_url) {
       return NextResponse.json({ error: "结果文件尚未生成" }, { status: 400 });
