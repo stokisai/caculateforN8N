@@ -51,7 +51,6 @@ export default function KeywordToolClient({
 }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   
-  // 文件状态
   const [files, setFiles] = useState<FilesState>(() => {
     const initial: Partial<FilesState> = {};
     FILE_CONFIG.forEach(config => {
@@ -60,18 +59,14 @@ export default function KeywordToolClient({
     return initial as FilesState;
   });
   
-  // 任务状态
   const [taskId, setTaskId] = useState<string | null>(null);
   const [taskStatus, setTaskStatus] = useState<string>("idle");
   const [taskProgress, setTaskProgress] = useState(0);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // 历史任务
   const [tasks, setTasks] = useState<KeywordTask[]>(recentTasks);
 
-  // 处理文件选择
   const handleFileSelect = useCallback((fileType: KeywordFileType, file: File | null) => {
     setFiles(prev => ({
       ...prev,
@@ -84,7 +79,6 @@ export default function KeywordToolClient({
     }));
   }, []);
 
-  // 清除文件
   const handleFileClear = useCallback((fileType: KeywordFileType) => {
     setFiles(prev => ({
       ...prev,
@@ -92,22 +86,19 @@ export default function KeywordToolClient({
     }));
   }, []);
 
-  // 检查必填文件是否都已选择
   const requiredFilesSelected = useMemo(() => {
     return FILE_CONFIG
       .filter(c => c.required)
       .every(c => files[c.type].file !== null);
   }, [files]);
 
-  // 获取已选择的文件数量
   const selectedFilesCount = useMemo(() => {
     return Object.values(files).filter(f => f.file !== null).length;
   }, [files]);
 
-  // 提交任务
   const handleSubmit = async () => {
     if (!requiredFilesSelected) {
-      setErrorMsg("请上传所有必填文件");
+      setErrorMsg("请先上传标记为 '*' 的必填文件");
       return;
     }
 
@@ -123,9 +114,7 @@ export default function KeywordToolClient({
         .select()
         .single();
 
-      if (taskError || !task) {
-        throw new Error(taskError?.message || "创建任务失败");
-      }
+      if (taskError || !task) throw new Error(taskError?.message || "创建任务失败");
 
       setTaskId(task.id);
       setTaskProgress(5);
@@ -138,41 +127,18 @@ export default function KeywordToolClient({
         const file = state.file!;
         const storagePath = `${user.id}/${task.id}/${fileType}_${Date.now()}.xlsx`;
         
-        setFiles(prev => ({
-          ...prev,
-          [fileType]: { ...prev[fileType], uploading: true }
-        }));
+        setFiles(prev => ({ ...prev, [fileType]: { ...prev[fileType], uploading: true } }));
 
-        const { error: uploadError } = await supabase.storage
-          .from("keyword-files")
-          .upload(storagePath, file);
+        const { error: uploadError } = await supabase.storage.from("keyword-files").upload(storagePath, file);
+        if (uploadError) throw new Error(`上传 ${FILE_CONFIG.find(c => c.type === fileType)?.label} 失败`);
 
-        if (uploadError) {
-          throw new Error(`上传 ${FILE_CONFIG.find(c => c.type === fileType)?.label} 失败: ${uploadError.message}`);
-        }
-
-        fileRecords.push({
-          file_type: fileType,
-          storage_path: storagePath,
-          file_name: file.name,
-          file_size: file.size,
-        });
-
-        setFiles(prev => ({
-          ...prev,
-          [fileType]: { ...prev[fileType], uploading: false, uploaded: true }
-        }));
-
+        fileRecords.push({ file_type: fileType, storage_path: storagePath, file_name: file.name, file_size: file.size });
+        setFiles(prev => ({ ...prev, [fileType]: { ...prev[fileType], uploading: false, uploaded: true } }));
         setTaskProgress(5 + Math.round((i + 1) / filesToUpload.length * 20));
       }
 
-      const { error: filesError } = await supabase
-        .from("keyword_task_files")
-        .insert(fileRecords.map(r => ({ ...r, task_id: task.id })));
-
-      if (filesError) {
-        throw new Error(`保存文件记录失败: ${filesError.message}`);
-      }
+      const { error: filesError } = await supabase.from("keyword_task_files").insert(fileRecords.map(r => ({ ...r, task_id: task.id })));
+      if (filesError) throw new Error("保存文件记录失败");
 
       setTaskProgress(30);
       setTaskStatus("processing");
@@ -185,13 +151,11 @@ export default function KeywordToolClient({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "处理请求失败");
+        throw new Error(errorData.error || "后端处理请求失败");
       }
 
       pollTaskStatus(task.id);
-
     } catch (error) {
-      console.error("Submit error:", error);
       setErrorMsg(error instanceof Error ? error.message : "提交失败");
       setTaskStatus("failed");
       setIsSubmitting(false);
@@ -200,22 +164,15 @@ export default function KeywordToolClient({
 
   const pollTaskStatus = async (id: string) => {
     const poll = async () => {
-      const { data: task, error } = await supabase
-        .from("keyword_tasks")
-        .select("*")
-        .eq("id", id)
-        .single();
-
+      const { data: task, error } = await supabase.from("keyword_tasks").select("*").eq("id", id).single();
       if (error || !task) {
-        setErrorMsg("获取任务状态失败");
+        setErrorMsg("同步任务进度失败");
         setTaskStatus("failed");
         setIsSubmitting(false);
         return;
       }
-
       setTaskProgress(task.progress ?? 0);
       setTaskStatus(task.status ?? "pending");
-
       if (task.status === "success") {
         setResultUrl(task.result_url);
         setIsSubmitting(false);
@@ -231,16 +188,8 @@ export default function KeywordToolClient({
   };
 
   const refreshTasks = async () => {
-    const { data } = await supabase
-      .from("keyword_tasks")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(10);
-    
-    if (data) {
-      setTasks(data);
-    }
+    const { data } = await supabase.from("keyword_tasks").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10);
+    if (data) setTasks(data);
   };
 
   const handleDownload = async (downloadTaskId: string) => {
@@ -257,24 +206,17 @@ export default function KeywordToolClient({
       URL.revokeObjectURL(blobUrl);
       document.body.removeChild(a);
     } catch (error) {
-      alert("下载失败，请重试");
+      alert("下载失败");
     }
   };
 
   const handleReset = () => {
     setFiles(() => {
       const initial: Partial<FilesState> = {};
-      FILE_CONFIG.forEach(config => {
-        initial[config.type] = { ...initialFileState };
-      });
+      FILE_CONFIG.forEach(config => { initial[config.type] = { ...initialFileState }; });
       return initial as FilesState;
     });
-    setTaskId(null);
-    setTaskStatus("idle");
-    setTaskProgress(0);
-    setResultUrl(null);
-    setErrorMsg(null);
-    setIsSubmitting(false);
+    setTaskId(null); setTaskStatus("idle"); setTaskProgress(0); setResultUrl(null); setErrorMsg(null); setIsSubmitting(false);
   };
 
   const handleSignOut = async () => {
@@ -283,104 +225,85 @@ export default function KeywordToolClient({
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#1e293b] font-sans">
+    <div className="min-h-screen bg-slate-100 text-slate-900 font-sans antialiased">
       {/* 顶部导航 */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-8">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
+          <div className="flex items-center gap-6">
             <a 
               href="/dashboard" 
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-all border border-slate-200/60 group"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-slate-700 hover:bg-slate-50 transition-all border border-slate-300 shadow-sm font-bold"
             >
-              <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-              <span className="text-sm font-semibold">返回工作台</span>
+              <ArrowLeft size={20} />
+              <span>返回工作台</span>
             </a>
+            <div className="h-8 w-px bg-slate-200" />
             <div>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
-                易逊关键词库工具
-                <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-600 text-[10px] font-black uppercase">PRO</span>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                易逊关键词库搭建工具
+                <span className="bg-indigo-600 text-white text-[12px] px-2 py-0.5 rounded-md font-black">V2.0</span>
               </h1>
-              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">Automation & Classification System</p>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="hidden md:flex flex-col items-end border-r border-slate-200 pr-6 mr-2">
-              <span className="text-[10px] text-slate-400 font-bold uppercase">Authorized Account</span>
-              <span className="text-sm text-slate-700 font-bold">{user.email}</span>
+          <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-200">
+            <div className="text-right">
+              <p className="text-[11px] text-slate-500 font-bold">登录账号</p>
+              <p className="text-sm font-bold text-slate-800">{user.email}</p>
             </div>
-            <button
-              onClick={handleSignOut}
-              className="p-2.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all border border-transparent hover:border-rose-100"
-            >
-              <LogOut size={20} />
+            <button onClick={handleSignOut} className="p-2 text-slate-400 hover:text-red-600 transition-colors">
+              <LogOut size={22} />
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+      <main className="max-w-7xl mx-auto px-6 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
-          {/* 左侧：操作核心 */}
-          <div className="lg:col-span-8 space-y-10">
-            
+          <div className="lg:col-span-8 space-y-8">
             {/* 说明卡片 */}
-            <div className="bg-white rounded-3xl p-8 border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden">
-              <div className="absolute -top-12 -right-12 w-48 h-48 bg-indigo-50 rounded-full blur-3xl opacity-60" />
-              <div className="relative z-10 space-y-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-                    <Info size={20} />
+            <div className="bg-white rounded-3xl p-8 border-2 border-indigo-100 shadow-sm">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                  <Info size={24} />
+                </div>
+                <h2 className="text-xl font-black text-slate-900">操作说明</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { title: "1. 准备数据", text: "上传 14 个 Excel 业务报表" },
+                  { title: "2. 逻辑标记", text: "系统自动计算三维度分类" },
+                  { title: "3. 一键下载", text: "直接获取标准词库 Excel" }
+                ].map((item, i) => (
+                  <div key={i} className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                    <p className="font-black text-indigo-600 mb-1">{item.title}</p>
+                    <p className="text-sm text-slate-600 font-bold leading-snug">{item.text}</p>
                   </div>
-                  <h2 className="text-lg font-extrabold text-slate-900">操作指引</h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {[
-                    { label: "上传文件", text: "提供 14 个业务报表，系统会自动对数据进行交叉验证" },
-                    { label: "智能分类", text: "AI 逻辑将自动处理关键词类别、相关性及流量权重" },
-                    { label: "结果导出", text: "处理完成后可一键下载符合易逊标准的标准词库表" }
-                  ].map((item, i) => (
-                    <div key={i} className="space-y-2">
-                      <p className="text-xs font-black text-indigo-600 uppercase tracking-tighter">Step {i+1} / {item.label}</p>
-                      <p className="text-sm text-slate-500 leading-relaxed font-medium">{item.text}</p>
-                    </div>
-                  ))}
-                </div>
+                ))}
               </div>
             </div>
 
             {/* 文件上传核心区 */}
-            <div className="bg-white rounded-3xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
-              <div className="p-8 border-b border-slate-100 flex justify-between items-end bg-slate-50/30">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <div>
-                  <h2 className="text-xl font-extrabold text-slate-900 mb-1">数据源管理</h2>
-                  <p className="text-sm text-slate-400 font-medium">请按需上传对应的 Excel 报表</p>
+                  <h2 className="text-2xl font-black text-slate-900 mb-1">文件上传</h2>
+                  <p className="text-base text-slate-500 font-bold">请确保必填项 (*) 全部上传</p>
                 </div>
-                <div className="bg-white px-5 py-3 rounded-2xl border border-slate-200/60 shadow-sm flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black">Selected</p>
-                    <p className="text-lg font-mono text-slate-900 font-black">{selectedFilesCount} <span className="text-slate-300">/</span> {FILE_CONFIG.length}</p>
-                  </div>
-                  <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div 
-                      className="bg-indigo-600 h-full transition-all duration-700 ease-out" 
-                      style={{ width: `${(selectedFilesCount / FILE_CONFIG.length) * 100}%` }}
-                    />
-                  </div>
+                <div className="bg-white px-6 py-4 rounded-2xl border-2 border-slate-200 shadow-sm text-center min-w-[120px]">
+                  <p className="text-[12px] text-slate-400 font-black uppercase tracking-widest mb-1">已选文件</p>
+                  <p className="text-2xl font-mono text-slate-900 font-black">{selectedFilesCount} / {FILE_CONFIG.length}</p>
                 </div>
               </div>
               
               <div className="p-8 space-y-10">
                 {[
-                  { id: 'main', label: '核心反查报表', color: 'indigo', icon: <FileSpreadsheet size={16}/> },
-                  { id: 'compete', label: '竞品分析数据', color: 'emerald', icon: <LayoutGrid size={16}/> },
-                  { id: 'base', label: '逻辑配置基础', color: 'amber', icon: <Info size={16}/> }
+                  { id: 'main', label: '核心反查表 (必填)', color: 'indigo' },
+                  { id: 'compete', label: '竞品分析表 (选填)', color: 'emerald' },
+                  { id: 'base', label: '拓词基础表 (必填)', color: 'amber' }
                 ].map(group => (
                   <div key={group.id} className="space-y-5">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-${group.color}-600`}>{group.icon}</span>
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{group.label}</h3>
-                    </div>
+                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] px-1 border-l-4 border-current">{group.label}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                       {FILE_CONFIG.filter(c => c.group === group.id).map((config) => (
                         <FileUploadCard
@@ -399,128 +322,109 @@ export default function KeywordToolClient({
             </div>
 
             {/* 操作控制台 */}
-            <div className="sticky bottom-8 z-40">
-              <div className="bg-white/80 backdrop-blur-2xl border border-slate-200/60 p-5 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] flex gap-5 items-center max-w-2xl mx-auto">
-                <button
-                  onClick={handleSubmit}
-                  disabled={!requiredFilesSelected || isSubmitting}
-                  className="flex-1 h-16 bg-slate-900 hover:bg-indigo-600 disabled:bg-slate-200 text-white rounded-2xl font-bold text-lg transition-all flex justify-center items-center gap-3 shadow-xl disabled:shadow-none active:scale-[0.98] group"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="animate-spin text-indigo-400" size={24} />
-                      <span className="text-slate-100">处理逻辑中...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload size={22} className="group-hover:-translate-y-1 transition-transform" />
-                      <span>开始搭建词库库</span>
-                    </>
-                  )}
-                </button>
-                
-                {(taskStatus !== "idle" || selectedFilesCount > 0) && (
-                  <button
-                    onClick={handleReset}
-                    disabled={isSubmitting && taskStatus === "processing"}
-                    className="w-16 h-16 flex items-center justify-center bg-white text-slate-400 rounded-2xl hover:text-rose-500 hover:bg-rose-50 transition-all border border-slate-200 hover:border-rose-100 disabled:opacity-20 group"
-                    title="清空已上传"
-                  >
-                    <Trash2 size={24} className="group-hover:rotate-12 transition-transform" />
-                  </button>
+            <div className="bg-white/90 backdrop-blur-xl border border-slate-200 p-6 rounded-3xl shadow-xl flex gap-6 items-center">
+              <button
+                onClick={handleSubmit}
+                disabled={!requiredFilesSelected || isSubmitting}
+                className="flex-1 h-16 bg-slate-900 hover:bg-indigo-600 disabled:bg-slate-200 text-white rounded-2xl font-black text-xl transition-all flex justify-center items-center gap-4 shadow-xl active:scale-[0.98] group"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="animate-spin text-indigo-400" size={28} />
+                    <span>处理中，请稍后...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload size={24} />
+                    <span>立即开始搭建词库</span>
+                  </>
                 )}
-              </div>
+              </button>
+              
+              {(taskStatus !== "idle" || selectedFilesCount > 0) && (
+                <button
+                  onClick={handleReset}
+                  disabled={isSubmitting && taskStatus === "processing"}
+                  className="w-16 h-16 flex items-center justify-center bg-white text-slate-400 rounded-2xl hover:text-red-600 transition-all border-2 border-slate-200 hover:border-red-200 disabled:opacity-20"
+                  title="重置"
+                >
+                  <Trash2 size={28} />
+                </button>
+              )}
             </div>
 
-            {/* 处理进度面板 */}
+            {/* 进度条 */}
             {taskStatus !== "idle" && (
-              <div className="bg-white border border-slate-200/60 rounded-3xl p-10 shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-700">
-                <div className="flex justify-between items-start mb-10">
-                  <div className="flex items-center gap-5">
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-inner">
+              <div className="bg-white border border-slate-200 rounded-3xl p-10 shadow-lg space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-inner">
                       <Loader2 className={taskStatus === 'processing' || taskStatus === 'uploading' ? "animate-spin" : ""} size={32} />
                     </div>
                     <div>
-                      <h3 className="text-xl font-black text-slate-900">执行管道就绪</h3>
-                      <p className="text-sm text-slate-400 font-bold font-mono tracking-tight">UID: {taskId?.slice(0, 12)}</p>
+                      <h3 className="text-2xl font-black text-slate-900">执行管道任务</h3>
+                      <p className="text-sm text-slate-500 font-bold">任务号: {taskId}</p>
                     </div>
                   </div>
                   <StatusBadge status={taskStatus} />
                 </div>
                 
-                <div className="space-y-8">
-                  <div>
-                    <div className="flex justify-between items-end mb-3">
-                      <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Processing Progress</span>
-                      <span className="text-3xl font-mono text-slate-900 font-black">{taskProgress}%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-5 p-1.5 shadow-inner">
-                      <div 
-                        className="bg-indigo-600 h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(79,70,229,0.3)] relative"
-                        style={{ width: `${taskProgress}%` }}
-                      >
-                        <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.3)_50%,transparent_100%)] animate-[shimmer_2s_infinite] bg-[length:200%_100%]" />
-                      </div>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-end">
+                    <span className="text-base font-black text-slate-500 uppercase">进度详情</span>
+                    <span className="text-4xl font-mono text-slate-900 font-black">{taskProgress}%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-6 p-1.5 shadow-inner border border-slate-200">
+                    <div 
+                      className="bg-indigo-600 h-full rounded-full transition-all duration-1000 ease-out shadow-lg relative overflow-hidden"
+                      style={{ width: `${taskProgress}%` }}
+                    >
+                      <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.4)_50%,transparent_100%)] animate-[shimmer_2s_infinite] bg-[length:200%_100%]" />
                     </div>
                   </div>
-
-                  {errorMsg && (
-                    <div className="p-6 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-5">
-                      <div className="p-2.5 bg-white rounded-xl text-rose-500 shadow-sm">
-                        <AlertCircle size={24} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-black text-rose-600 mb-1">系统报告异常</p>
-                        <p className="text-sm text-rose-500/80 leading-relaxed font-medium">{errorMsg}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {taskStatus === "success" && taskId && (
-                    <button
-                      onClick={() => handleDownload(taskId)}
-                      className="w-full bg-indigo-600 text-white h-16 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-900 transition-all shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      <Download size={24} />
-                      <span>立即下载标准化词库表</span>
-                    </button>
-                  )}
                 </div>
+
+                {errorMsg && (
+                  <div className="p-6 bg-red-50 border-2 border-red-100 rounded-2xl flex items-start gap-4">
+                    <AlertCircle className="text-red-600 shrink-0 mt-1" size={24} />
+                    <div className="flex-1">
+                      <p className="text-lg font-black text-red-700">系统错误</p>
+                      <p className="text-base text-red-600/80 font-bold leading-relaxed">{errorMsg}</p>
+                    </div>
+                  </div>
+                )}
+
+                {taskStatus === "success" && taskId && (
+                  <button
+                    onClick={() => handleDownload(taskId)}
+                    className="w-full bg-green-600 text-white h-20 rounded-2xl font-black text-2xl flex items-center justify-center gap-4 hover:bg-green-700 transition-all shadow-xl shadow-green-100 hover:scale-[1.01] active:scale-[0.99]"
+                  >
+                    <Download size={32} />
+                    <span>下载处理结果 (.xlsx)</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
 
-          {/* 右侧：记录面板 */}
-          <div className="lg:col-span-4">
-            <div className="bg-white rounded-3xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] sticky top-[120px] overflow-hidden">
-              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-white rounded-lg border border-slate-200 flex items-center justify-center text-slate-400">
-                    <Clock size={16} />
-                  </div>
-                  <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">运行历史</h2>
-                </div>
-                <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded font-black tracking-tighter">LIVE</span>
+          {/* 右侧历史 */}
+          <div className="lg:col-span-4 space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
+                <Clock className="text-slate-400" size={20} />
+                <h2 className="text-lg font-black text-slate-900 tracking-tight">运行历史</h2>
               </div>
               
-              <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
+              <div className="p-6 space-y-5 max-h-[800px] overflow-y-auto">
                 {tasks.length === 0 ? (
-                  <div className="text-center py-16">
-                    <div className="w-20 h-20 mx-auto bg-slate-50 rounded-full flex items-center justify-center text-slate-200 mb-6">
-                      <Clock size={40} />
-                    </div>
-                    <p className="text-sm text-slate-400 font-bold tracking-tight">暂无历史执行记录</p>
+                  <div className="text-center py-20 text-slate-300">
+                    <Clock size={48} className="mx-auto mb-4 opacity-20" />
+                    <p className="font-bold">暂无历史记录</p>
                   </div>
                 ) : (
-                  <div className="space-y-5">
-                    {tasks.map((task) => (
-                      <TaskHistoryCard
-                        key={task.id}
-                        task={task}
-                        onDownload={handleDownload}
-                      />
-                    ))}
-                  </div>
+                  tasks.map((task) => (
+                    <TaskHistoryCard key={task.id} task={task} onDownload={handleDownload} />
+                  ))
                 )}
               </div>
             </div>
@@ -533,35 +437,12 @@ export default function KeywordToolClient({
           from { background-position: -200% 0; }
           to { background-position: 200% 0; }
         }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #e2e8f0;
-          border-radius: 10px;
-        }
       `}</style>
     </div>
   );
 }
 
-// 文件上传卡片组件
-function FileUploadCard({ 
-  config, 
-  state, 
-  onSelect, 
-  onClear,
-  disabled 
-}: { 
-  config: { type: KeywordFileType; label: string; required: boolean };
-  state: FileUploadState;
-  onSelect: (file: File | null) => void;
-  onClear: () => void;
-  disabled: boolean;
-}) {
+function FileUploadCard({ config, state, onSelect, onClear, disabled }: any) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     if (file) {
@@ -577,11 +458,11 @@ function FileUploadCard({
 
   return (
     <div 
-      className={`group relative rounded-2xl p-5 transition-all duration-500 border ${
+      className={`group relative rounded-2xl p-6 transition-all duration-300 border-2 ${
         isSelected 
-          ? 'border-indigo-600 bg-white shadow-[0_10px_25px_rgba(79,70,229,0.1)]' 
-          : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50/50'
-      } ${disabled ? 'opacity-40 grayscale cursor-not-allowed' : 'cursor-pointer'}`}
+          ? 'border-indigo-600 bg-white shadow-md' 
+          : 'border-slate-200 bg-white hover:border-indigo-300'
+      } ${disabled ? 'opacity-40 grayscale' : 'cursor-pointer'}`}
     >
       {!isSelected && (
         <input
@@ -589,48 +470,39 @@ function FileUploadCard({
           accept=".xlsx,.xls"
           onChange={handleChange}
           disabled={disabled}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
         />
       )}
       
-      <div className="flex flex-col gap-4 relative z-0">
+      <div className="flex flex-col gap-4">
         <div className="flex justify-between items-start">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-500 shadow-sm ${
-            isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400 group-hover:text-indigo-500'
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
+            isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 group-hover:text-indigo-600'
           }`}>
-            {isSelected ? <CheckCircle size={20} /> : <Upload size={20} />}
+            {isSelected ? <CheckCircle size={24} /> : <Upload size={24} />}
           </div>
           {config.required && !isSelected && (
-            <span className="text-[9px] font-black text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 uppercase">Required</span>
+            <span className="text-[11px] font-black text-white bg-red-500 px-2 py-0.5 rounded shadow-sm">必填</span>
           )}
         </div>
 
         <div className="min-w-0">
-          <p className={`text-sm font-extrabold truncate mb-1 ${isSelected ? 'text-slate-900' : 'text-slate-600'}`}>
+          <p className={`text-lg font-black truncate ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
             {config.label}
           </p>
           
-          <div className="flex items-center gap-2">
+          <div className="mt-1">
             {isSelected ? (
-              <>
-                <span className="text-[10px] text-indigo-600 font-bold truncate max-w-[140px] font-mono">{state.file!.name}</span>
-                {state.uploading && <Loader2 className="text-indigo-400 animate-spin" size={10} />}
-              </>
+              <span className="text-sm text-indigo-600 font-black truncate block font-mono">{state.file!.name}</span>
             ) : (
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">点击或拖拽上传</span>
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-tighter">点击上传</span>
             )}
           </div>
         </div>
         
         {isSelected && !disabled && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onClear();
-            }}
-            className="absolute top-0 right-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all border border-transparent hover:border-rose-100"
-          >
-            <X size={16} />
+          <button onClick={(e) => { e.stopPropagation(); onClear(); }} className="absolute top-2 right-2 p-2 text-slate-300 hover:text-red-600">
+            <X size={20} />
           </button>
         )}
       </div>
@@ -638,86 +510,51 @@ function FileUploadCard({
   );
 }
 
-// 状态徽章组件
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; color: string }> = {
-    idle: { label: "Ready", color: "slate" },
-    uploading: { label: "Syncing", color: "blue" },
-    processing: { label: "Analyzing", color: "amber" },
-    success: { label: "Verified", color: "emerald" },
-    failed: { label: "Error", color: "rose" },
-    pending: { label: "Queue", color: "slate" },
+    idle: { label: "就绪", color: "slate" },
+    uploading: { label: "同步中", color: "blue" },
+    processing: { label: "分析中", color: "amber" },
+    success: { label: "已完成", color: "green" },
+    failed: { label: "失败", color: "red" },
+    pending: { label: "排队", color: "slate" },
   };
-
   const { label, color } = config[status] || config.pending;
-
+  const colorMap: any = {
+    slate: "bg-slate-100 text-slate-600 border-slate-200",
+    blue: "bg-blue-100 text-blue-700 border-blue-200",
+    amber: "bg-amber-100 text-amber-700 border-amber-200",
+    green: "bg-green-100 text-green-700 border-green-200",
+    red: "bg-red-100 text-red-700 border-red-200"
+  };
   return (
-    <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border border-${color}-100 bg-${color}-50 text-${color}-600`}>
-      <div className={`w-2 h-2 rounded-full bg-${color}-500 ${status === 'processing' || status === 'uploading' ? 'animate-ping' : ''}`} />
-      <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+    <div className={`px-4 py-1.5 rounded-full border-2 font-black text-sm ${colorMap[color]}`}>
+      {label}
     </div>
   );
 }
 
-// 历史任务卡片组件
-function TaskHistoryCard({ 
-  task, 
-  onDownload 
-}: { 
-  task: KeywordTask; 
-  onDownload: (taskId: string) => void;
-}) {
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleString('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
+function TaskHistoryCard({ task, onDownload }: any) {
   const status = task.status ?? "pending";
   const isSuccess = status === "success";
+  const date = new Date(task.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   
   return (
-    <div className={`group rounded-2xl p-6 transition-all duration-500 border bg-white ${
-      isSuccess ? 'border-slate-100 hover:border-indigo-600 hover:shadow-[0_10px_30px_rgba(79,70,229,0.08)]' : 'border-slate-100'
-    }`}>
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-1.5 h-1.5 rounded-full bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.5)]" />
-          <span className="text-xs font-black text-slate-900 font-mono tracking-tighter">{formatDate(task.created_at)}</span>
-        </div>
+    <div className={`rounded-2xl p-5 border-2 transition-all ${isSuccess ? 'border-slate-100 hover:border-indigo-600 shadow-sm hover:shadow-md' : 'border-slate-50'}`}>
+      <div className="flex justify-between items-center mb-4">
+        <span className="text-sm font-black text-slate-900 font-mono tracking-tighter">{date}</span>
         <StatusBadge status={status} />
       </div>
-      
-      {isSuccess && task.result_url ? (
-        <button
-          onClick={() => onDownload(task.id)}
-          className="w-full h-12 bg-slate-50 hover:bg-indigo-600 text-slate-900 hover:text-white text-[11px] font-black uppercase tracking-widest rounded-xl flex items-center justify-center gap-3 transition-all border border-slate-200 group-hover:border-indigo-600 shadow-sm active:scale-95"
-        >
-          <Download size={14} />
-          <span>Get Report</span>
-          <ChevronRight size={12} className="opacity-50" />
+      {isSuccess ? (
+        <button onClick={() => onDownload(task.id)} className="w-full h-12 bg-indigo-600 text-white font-black rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-indigo-50 active:scale-95 transition-transform">
+          <Download size={18} /> 下载报表
         </button>
       ) : (
-        <div className="space-y-3">
-          {status === "failed" ? (
-            <div className="p-3 bg-rose-50 rounded-xl border border-rose-100">
-              <p className="text-[10px] text-rose-500/80 font-bold leading-tight line-clamp-2 italic">{task.error_msg}</p>
-            </div>
-          ) : (
-            <div className="flex items-center gap-4">
-              <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div 
-                  className="bg-indigo-600 h-full transition-all duration-500" 
-                  style={{ width: `${task.progress ?? 0}%` }} 
-                />
-              </div>
-              <span className="text-[10px] font-black text-slate-900 font-mono">{task.progress ?? 0}%</span>
-            </div>
-          )}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+            <div className="bg-indigo-600 h-full transition-all" style={{ width: `${task.progress}%` }} />
+          </div>
+          <span className="text-xs font-black text-slate-900 font-mono">{task.progress}%</span>
         </div>
       )}
     </div>
