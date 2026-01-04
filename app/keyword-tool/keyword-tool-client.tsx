@@ -310,7 +310,7 @@ export default function KeywordToolClient({
                           key={config.type}
                           config={config}
                           state={files[config.type]}
-                          onSelect={(file) => handleFileSelect(config.type, file)}
+                          onSelect={(file: File | null) => handleFileSelect(config.type, file)}
                           onClear={() => handleFileClear(config.type)}
                           disabled={isSubmitting}
                         />
@@ -442,7 +442,19 @@ export default function KeywordToolClient({
   );
 }
 
-function FileUploadCard({ config, state, onSelect, onClear, disabled }: any) {
+function FileUploadCard({ 
+  config, 
+  state, 
+  onSelect, 
+  onClear, 
+  disabled 
+}: { 
+  config: typeof FILE_CONFIG[0];
+  state: FileUploadState;
+  onSelect: (file: File | null) => void;
+  onClear: () => void;
+  disabled: boolean;
+}) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     if (file) {
@@ -520,7 +532,7 @@ function StatusBadge({ status }: { status: string }) {
     pending: { label: "排队", color: "slate" },
   };
   const { label, color } = config[status] || config.pending;
-  const colorMap: any = {
+  const colorMap: Record<string, string> = {
     slate: "bg-slate-100 text-slate-600 border-slate-200",
     blue: "bg-blue-100 text-blue-700 border-blue-200",
     amber: "bg-amber-100 text-amber-700 border-amber-200",
@@ -534,7 +546,13 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function TaskHistoryCard({ task, onDownload }: any) {
+function TaskHistoryCard({ 
+  task, 
+  onDownload 
+}: { 
+  task: KeywordTask; 
+  onDownload: (taskId: string) => void;
+}) {
   const status = task.status ?? "pending";
   const isSuccess = status === "success";
   const date = new Date(task.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -552,11 +570,12 @@ function TaskHistoryCard({ task, onDownload }: any) {
       ) : (
         <div className="flex items-center gap-3">
           <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-            <div className="bg-indigo-600 h-full transition-all" style={{ width: `${task.progress}%` }} />
+            <div className="bg-indigo-600 h-full transition-all" style={{ width: `${task.progress ?? 0}%` }} />
           </div>
-          <span className="text-xs font-black text-slate-900 font-mono">{task.progress}%</span>
+          <span className="text-xs font-black text-slate-900 font-mono">{task.progress ?? 0}%</span>
         </div>
       )}
     </div>
   );
 }
+
