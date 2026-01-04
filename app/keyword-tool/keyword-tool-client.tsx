@@ -220,8 +220,8 @@ export default function KeywordToolClient({
         return;
       }
 
-      setTaskProgress(task.progress);
-      setTaskStatus(task.status);
+      setTaskProgress(task.progress ?? 0);
+      setTaskStatus(task.status ?? "pending");
 
       if (task.status === "success") {
         setResultUrl(task.result_url);
