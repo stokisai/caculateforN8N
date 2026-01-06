@@ -2043,16 +2043,13 @@ KEYWORD_FILE_TYPES = [
 ]
 
 
-@app.post("/api/keyword-tool/process")
-async def process_keyword_task(task_id: str = Form(...)):
+def process_keyword_task_background(task_id: str):
     """
-    处理关键词分类任务
-    从 Supabase Storage 读取文件，处理后上传结果
+    后台处理关键词分类任务（同步函数，在后台线程中执行）
     """
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Supabase 未配置")
-    
     try:
+        print(f"🚀 开始后台处理任务: {task_id}")
+        
         # 1. 更新任务状态为处理中
         supabase.table("keyword_tasks").update({
             "status": "processing",
@@ -2125,7 +2122,7 @@ async def process_keyword_task(task_id: str = Form(...)):
             "result_url": result_path
         }).eq("id", task_id).execute()
         
-        return JSONResponse({"success": True, "result_url": result_path})
+        print(f"✅ 任务处理成功: {task_id}")
         
     except Exception as e:
         print(f"❌ 关键词处理失败: {str(e)}")
@@ -2138,8 +2135,40 @@ async def process_keyword_task(task_id: str = Form(...)):
                 "status": "failed",
                 "error_msg": str(e)
             }).eq("id", task_id).execute()
-        
-        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/keyword-tool/process")
+async def process_keyword_task(task_id: str = Form(...), background_tasks: BackgroundTasks = None):
+    """
+    处理关键词分类任务（立即返回，后台异步处理）
+    从 Supabase Storage 读取文件，处理后上传结果
+    """
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase 未配置")
+    
+    # 验证任务存在
+    try:
+        task_response = supabase.table("keyword_tasks").select("id").eq("id", task_id).single().execute()
+        if not task_response.data:
+            raise HTTPException(status_code=404, detail="任务不存在")
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"任务不存在: {str(e)}")
+    
+    # 立即更新状态为处理中
+    supabase.table("keyword_tasks").update({
+        "status": "processing",
+        "progress": 5
+    }).eq("id", task_id).execute()
+    
+    # 在后台线程中执行处理（不阻塞响应）
+    background_tasks.add_task(process_keyword_task_background, task_id)
+    
+    # 立即返回，告知前端任务已开始
+    return JSONResponse({
+        "success": True, 
+        "message": "任务已开始处理，请通过轮询查询进度",
+        "task_id": task_id
+    })
 
 
 @app.get("/api/keyword-tool/task/{task_id}")
