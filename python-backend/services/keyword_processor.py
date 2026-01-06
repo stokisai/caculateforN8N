@@ -6,7 +6,7 @@
 import pandas as pd
 import numpy as np
 import re
-from typing import Dict, List, Optional, Tuple, Set
+from typing import Dict, List, Optional, Tuple, Set, Any
 from io import BytesIO
 
 
@@ -54,14 +54,15 @@ class KeywordProcessor:
             raise ValueError(f"读取 Excel 文件失败: {str(e)}")
     
     def get_keywords_set(self, df: pd.DataFrame) -> Set[str]:
-        """从 DataFrame 中提取关键词集合"""
+        """从 DataFrame 中提取关键词集合（保持原始大小写）"""
         keyword_col = self.find_column(df, self.KEYWORD_COLUMNS)
         if not keyword_col:
             # 尝试使用第一列
             keyword_col = df.columns[0]
         
-        keywords = df[keyword_col].dropna().astype(str).str.strip().str.lower()
-        return set(keywords)
+        # 不转换小写，保持原始大小写
+        keywords = df[keyword_col].dropna().astype(str).str.strip()
+        return set(k for k in keywords if k and k != 'nan')
     
     def get_competitor_aba_keywords(self, file_content: bytes) -> Set[str]:
         """
@@ -108,7 +109,8 @@ class KeywordProcessor:
             keyword_col = df.columns[0]
         
         result = pd.DataFrame()
-        result['keyword'] = df[keyword_col].astype(str).str.strip().str.lower()
+        # 保持原始大小写，不转换为小写
+        result['keyword'] = df[keyword_col].astype(str).str.strip()
         
         if ad_rank_col:
             result['ad_rank'] = pd.to_numeric(df[ad_rank_col], errors='coerce')
@@ -120,7 +122,9 @@ class KeywordProcessor:
         else:
             result['natural_rank'] = np.nan
         
-        return result.dropna(subset=['keyword'])
+        # 过滤无效关键词
+        result = result[result['keyword'].notna() & (result['keyword'] != 'nan') & (result['keyword'] != '')]
+        return result
     
     def process_an_column(
         self,
@@ -133,89 +137,152 @@ class KeywordProcessor:
         """
         处理 AN 列（关键词类别）
         优先级: F > E > D > C > B > A
+        
+        完全按照本地版本的逻辑实现
         """
         results = []
-        keywords = main_df[keyword_col].astype(str).str.strip().str.lower()
         
-        # 合并所有竞品数据
-        all_competitor_data = pd.concat(competitor_data_list, ignore_index=True) if competitor_data_list else pd.DataFrame()
+        # 构建竞品关键词数据字典：{keyword: {comp_num: {ad_rank, natural_rank}}}
+        competitor_keyword_data: Dict[str, Dict[int, Dict[str, Optional[float]]]] = {}
         
-        for keyword in keywords:
-            label = self._classify_an(
-                keyword, 
-                self_asin_keywords, 
-                competitor_aba_keywords, 
-                all_competitor_data,
-                competitor_data_list
+        for comp_num, comp_df in enumerate(competitor_data_list, start=1):
+            if comp_df is None or comp_df.empty:
+                continue
+            
+            for _, row in comp_df.iterrows():
+                keyword = str(row['keyword']).strip()
+                if not keyword or keyword == 'nan':
+                    continue
+                
+                if keyword not in competitor_keyword_data:
+                    competitor_keyword_data[keyword] = {}
+                
+                ad_rank = row.get('ad_rank', None)
+                natural_rank = row.get('natural_rank', None)
+                
+                # 转换为 float 或 None
+                if pd.notna(ad_rank):
+                    try:
+                        ad_rank = float(ad_rank)
+                    except:
+                        ad_rank = None
+                else:
+                    ad_rank = None
+                    
+                if pd.notna(natural_rank):
+                    try:
+                        natural_rank = float(natural_rank)
+                    except:
+                        natural_rank = None
+                else:
+                    natural_rank = None
+                
+                if comp_num not in competitor_keyword_data[keyword]:
+                    competitor_keyword_data[keyword][comp_num] = {'ad_rank': ad_rank, 'natural_rank': natural_rank}
+                else:
+                    # 如果已存在，保留更小的排名值
+                    existing = competitor_keyword_data[keyword][comp_num]
+                    if ad_rank is not None and (existing['ad_rank'] is None or ad_rank < existing['ad_rank']):
+                        existing['ad_rank'] = ad_rank
+                    if natural_rank is not None and (existing['natural_rank'] is None or natural_rank < existing['natural_rank']):
+                        existing['natural_rank'] = natural_rank
+        
+        # 遍历主表的每个关键词进行分类
+        for idx, row in main_df.iterrows():
+            keyword = str(row[keyword_col]).strip()
+            if pd.isna(row[keyword_col]) or keyword == 'nan' or keyword == '':
+                results.append(None)
+                continue
+            
+            mark = self._classify_an_local_logic(
+                keyword,
+                self_asin_keywords,
+                competitor_aba_keywords,
+                competitor_keyword_data
             )
-            results.append(label)
+            results.append(mark)
         
         return pd.Series(results)
     
-    def _classify_an(
+    def _classify_an_local_logic(
         self,
         keyword: str,
         self_asin_keywords: Set[str],
         competitor_aba_keywords: Set[str],
-        all_competitor_data: pd.DataFrame,
-        competitor_data_list: List[pd.DataFrame]
+        competitor_keyword_data: Dict[str, Dict[int, Dict[str, Optional[float]]]]
     ) -> str:
-        """单个关键词的 AN 分类"""
+        """
+        单个关键词的 AN 分类（完全按照本地版本逻辑）
+        优先级: F > E > D > C > B > A
+        """
+        mark = None
         
-        # F: 出现在自身ASIN反查
+        # 检查F：在自身ASIN反查中出现过
         if keyword in self_asin_keywords:
-            return "F"
-        
-        # E: 出现在竞对ABA热搜词反查的第二工作表
-        if keyword in competitor_aba_keywords:
-            return "E"
-        
+            mark = 'F'
+        # 检查E：在竞对ABA热搜词反查中出现过
+        elif keyword in competitor_aba_keywords:
+            mark = 'E'
         # 检查竞品数据
-        if all_competitor_data.empty:
-            return "A"
-        
-        keyword_data = all_competitor_data[all_competitor_data['keyword'] == keyword]
-        
-        if keyword_data.empty:
-            # 未出现在任何竞品中
-            return "A"
-        
-        # 检查每个竞品的排名情况
-        has_d = False  # 广告≤20 且 自然≤20
-        has_c = False  # 仅自然≤20
-        has_b = False  # 仅广告≤20
-        
-        for comp_df in competitor_data_list:
-            comp_keyword_data = comp_df[comp_df['keyword'] == keyword]
-            if comp_keyword_data.empty:
-                continue
+        elif keyword in competitor_keyword_data:
+            comp_data = competitor_keyword_data[keyword]
+            
+            has_d_condition = False
+            has_c_condition = False
+            has_b_condition = False
+            has_a_condition = False
+            
+            # D条件：广告排名和自然排名都<=20（任意一个竞品满足即可）
+            for comp_num, ranks in comp_data.items():
+                ad_rank = ranks['ad_rank']
+                natural_rank = ranks['natural_rank']
+                if ad_rank is not None and ad_rank <= 20 and natural_rank is not None and natural_rank <= 20:
+                    has_d_condition = True
+                    break  # D优先级最高，找到就停止
+            
+            if not has_d_condition:
+                # C条件：仅自然排名<=20（广告排名需大于20或无值，任意一个竞品满足即可）
+                for comp_num, ranks in comp_data.items():
+                    ad_rank = ranks['ad_rank']
+                    natural_rank = ranks['natural_rank']
+                    if natural_rank is not None and natural_rank <= 20 and (ad_rank is None or ad_rank > 20):
+                        has_c_condition = True
+                        break  # C优先级高于B和A
                 
-            for _, row in comp_keyword_data.iterrows():
-                ad_rank = row.get('ad_rank', np.nan)
-                natural_rank = row.get('natural_rank', np.nan)
-                
-                ad_le_20 = pd.notna(ad_rank) and ad_rank <= 20
-                natural_le_20 = pd.notna(natural_rank) and natural_rank <= 20
-                ad_gt_20_or_na = pd.isna(ad_rank) or ad_rank > 20
-                natural_gt_20_or_na = pd.isna(natural_rank) or natural_rank > 20
-                
-                if ad_le_20 and natural_le_20:
-                    has_d = True
-                elif natural_le_20 and ad_gt_20_or_na:
-                    has_c = True
-                elif ad_le_20 and natural_gt_20_or_na:
-                    has_b = True
+                if not has_c_condition:
+                    # B条件：仅广告排名<=20（自然排名需大于20或无值，任意一个竞品满足即可）
+                    for comp_num, ranks in comp_data.items():
+                        ad_rank = ranks['ad_rank']
+                        natural_rank = ranks['natural_rank']
+                        if ad_rank is not None and ad_rank <= 20 and (natural_rank is None or natural_rank > 20):
+                            has_b_condition = True
+                            break  # B优先级高于A
+                    
+                    if not has_b_condition:
+                        # A条件：所有竞品的广告排名和自然排名都大于20或无值（所有竞品都要满足）
+                        all_a_condition = True
+                        for comp_num, ranks in comp_data.items():
+                            ad_rank = ranks['ad_rank']
+                            natural_rank = ranks['natural_rank']
+                            if not ((ad_rank is None or ad_rank > 20) and (natural_rank is None or natural_rank > 20)):
+                                all_a_condition = False
+                                break
+                        if all_a_condition:
+                            has_a_condition = True
+            
+            if has_d_condition:
+                mark = 'D'
+            elif has_c_condition:
+                mark = 'C'
+            elif has_b_condition:
+                mark = 'B'
+            elif has_a_condition:
+                mark = 'A'
+        else:
+            # 如果关键词在竞品1-10中未出现过，标记为A
+            mark = 'A'
         
-        # 按优先级返回
-        if has_d:
-            return "D"
-        if has_c:
-            return "C"
-        if has_b:
-            return "B"
-        
-        # 出现在竞品中但排名都>20
-        return "A"
+        return mark if mark else 'A'
     
     def process_ao_column(
         self,
