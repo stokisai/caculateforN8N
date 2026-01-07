@@ -3,11 +3,10 @@
 import { useMemo, useState, useCallback } from "react";
 import { 
   LogOut, Upload, FileSpreadsheet, CheckCircle, Loader2, 
-  Download, AlertCircle, X, ArrowLeft, Trash2, Archive, FolderOpen
+  Download, AlertCircle, X, ArrowLeft, Trash2
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { KeywordTask, KeywordFileType } from "@/types/supabase";
-import JSZip from "jszip";
 
 // 文件类型配置
 const FILE_CONFIG: { type: KeywordFileType; label: string; required: boolean }[] = [
@@ -26,24 +25,6 @@ const FILE_CONFIG: { type: KeywordFileType; label: string; required: boolean }[]
   { type: "competitor_10", label: "竞品10", required: false },
   { type: "keyword_base", label: "拓词基础表", required: true },
 ];
-
-// 文件名匹配规则（按优先级排序）
-const FILE_PATTERNS: Record<KeywordFileType, string[]> = {
-  h10_main: ["H10反查总表", "H10"],
-  self_asin: ["自身ASIN反查", "自身ASIN", "自身"],
-  competitor_aba: ["竞对ABA热搜词反查", "竞对ABA", "ABA热搜词", "竞对"],
-  competitor_1: ["竞品1：", "竞品1:", "竞品1", "竞品 1"],
-  competitor_2: ["竞品2：", "竞品2:", "竞品2", "竞品 2"],
-  competitor_3: ["竞品3：", "竞品3:", "竞品3", "竞品 3"],
-  competitor_4: ["竞品4：", "竞品4:", "竞品4", "竞品 4"],
-  competitor_5: ["竞品5：", "竞品5:", "竞品5", "竞品 5"],
-  competitor_6: ["竞品6：", "竞品6:", "竞品6", "竞品 6"],
-  competitor_7: ["竞品7：", "竞品7:", "竞品7", "竞品 7"],
-  competitor_8: ["竞品8：", "竞品8:", "竞品8", "竞品 8"],
-  competitor_9: ["竞品9：", "竞品9:", "竞品9", "竞品 9"],
-  competitor_10: ["竞品10：", "竞品10:", "竞品10", "竞品 10"],
-  keyword_base: ["拓词基础表", "基础表", "拓词"],
-};
 
 interface FileUploadState {
   file: File | null;
@@ -90,14 +71,6 @@ export default function KeywordToolClient({
   // 历史任务
   const [tasks, setTasks] = useState<KeywordTask[]>(recentTasks);
 
-  // ZIP 上传状态
-  const [isExtractingZip, setIsExtractingZip] = useState(false);
-  const [zipMatchResult, setZipMatchResult] = useState<{
-    matched: { type: KeywordFileType; fileName: string }[];
-    unmatched: string[];
-    missingRequired: string[];
-  } | null>(null);
-
   // 处理文件选择
   const handleFileSelect = useCallback((fileType: KeywordFileType, file: File | null) => {
     setFiles(prev => ({
@@ -109,8 +82,6 @@ export default function KeywordToolClient({
         error: null,
       }
     }));
-    // 清除 ZIP 匹配结果
-    setZipMatchResult(null);
   }, []);
 
   // 清除文件
@@ -119,115 +90,6 @@ export default function KeywordToolClient({
       ...prev,
       [fileType]: { ...initialFileState }
     }));
-  }, []);
-
-  // 处理 ZIP 文件上传
-  const handleZipUpload = useCallback(async (zipFile: File) => {
-    if (!zipFile.name.toLowerCase().endsWith('.zip')) {
-      alert('请上传 ZIP 格式的压缩包');
-      return;
-    }
-
-    setIsExtractingZip(true);
-    setErrorMsg(null);
-    setZipMatchResult(null);
-
-    try {
-      const zip = new JSZip();
-      const zipContent = await zip.loadAsync(zipFile);
-      
-      // 获取所有 Excel 文件（排除临时文件和 Mac 系统文件）
-      const excelFiles: { name: string; file: JSZip.JSZipObject }[] = [];
-      
-      zipContent.forEach((relativePath, file) => {
-        // 排除目录、临时文件、Mac 系统文件
-        if (file.dir) return;
-        if (relativePath.startsWith('__MACOSX/')) return;
-        if (relativePath.startsWith('.')) return;
-        if (relativePath.includes('/._')) return;
-        
-        const fileName = relativePath.split('/').pop() || '';
-        if (fileName.startsWith('~$')) return; // Excel 临时文件
-        
-        if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-          excelFiles.push({ name: fileName, file });
-        }
-      });
-
-      if (excelFiles.length === 0) {
-        setErrorMsg('压缩包中没有找到 Excel 文件');
-        setIsExtractingZip(false);
-        return;
-      }
-
-      // 匹配文件
-      const matched: { type: KeywordFileType; fileName: string; file: File }[] = [];
-      const usedFiles = new Set<string>();
-
-      // 按照 FILE_CONFIG 的顺序匹配，确保优先级正确
-      for (const config of FILE_CONFIG) {
-        const patterns = FILE_PATTERNS[config.type];
-        
-        // 查找匹配的文件
-        let matchedFile: { name: string; file: JSZip.JSZipObject } | null = null;
-        
-        for (const pattern of patterns) {
-          for (const excelFile of excelFiles) {
-            if (usedFiles.has(excelFile.name)) continue;
-            
-            if (excelFile.name.includes(pattern)) {
-              matchedFile = excelFile;
-              break;
-            }
-          }
-          if (matchedFile) break;
-        }
-
-        if (matchedFile) {
-          usedFiles.add(matchedFile.name);
-          // 将 JSZip 文件转换为 File 对象
-          const blob = await matchedFile.file.async('blob');
-          const file = new File([blob], matchedFile.name, { 
-            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-          });
-          matched.push({ type: config.type, fileName: matchedFile.name, file });
-        }
-      }
-
-      // 找出未匹配的文件
-      const unmatched = excelFiles
-        .filter(f => !usedFiles.has(f.name))
-        .map(f => f.name);
-
-      // 找出缺失的必填文件
-      const matchedTypes = new Set(matched.map(m => m.type));
-      const missingRequired = FILE_CONFIG
-        .filter(c => c.required && !matchedTypes.has(c.type))
-        .map(c => c.label);
-
-      // 更新文件状态
-      const newFiles: Partial<FilesState> = {};
-      FILE_CONFIG.forEach(config => {
-        const matchedItem = matched.find(m => m.type === config.type);
-        newFiles[config.type] = matchedItem 
-          ? { file: matchedItem.file, uploading: false, uploaded: false, error: null }
-          : { ...initialFileState };
-      });
-      setFiles(newFiles as FilesState);
-
-      // 设置匹配结果
-      setZipMatchResult({
-        matched: matched.map(m => ({ type: m.type, fileName: m.fileName })),
-        unmatched,
-        missingRequired,
-      });
-
-    } catch (error) {
-      console.error('ZIP 解压错误:', error);
-      setErrorMsg('解压压缩包失败，请确保文件格式正确');
-    } finally {
-      setIsExtractingZip(false);
-    }
   }, []);
 
   // 检查必填文件是否都已选择
@@ -431,7 +293,6 @@ export default function KeywordToolClient({
     setResultUrl(null);
     setErrorMsg(null);
     setIsSubmitting(false);
-    setZipMatchResult(null);
   };
 
   // 登出
@@ -478,120 +339,6 @@ export default function KeywordToolClient({
                 <p>2. 系统将自动处理并生成三列分类：<span className="text-emerald-400">关键词类别</span>、<span className="text-blue-400">相关性分类</span>、<span className="text-purple-400">流量大小分类</span></p>
                 <p>3. 处理完成后可下载结果Excel文件</p>
               </div>
-            </div>
-
-            {/* ZIP 快速上传 */}
-            <div className="bg-gradient-to-r from-indigo-900/50 to-purple-900/50 border border-indigo-500/30 rounded-xl p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <Archive className="text-indigo-400" size={24} />
-                <div>
-                  <h2 className="text-lg font-semibold text-white">📦 快速上传（推荐）</h2>
-                  <p className="text-sm text-slate-400">上传 ZIP 压缩包，系统自动识别文件</p>
-                </div>
-              </div>
-              
-              <div className="relative">
-                <input
-                  type="file"
-                  accept=".zip"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleZipUpload(file);
-                    e.target.value = ''; // 重置 input
-                  }}
-                  disabled={isSubmitting || isExtractingZip}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
-                />
-                <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${
-                  isExtractingZip 
-                    ? 'border-indigo-400 bg-indigo-500/10' 
-                    : 'border-indigo-500/50 hover:border-indigo-400 hover:bg-indigo-500/5'
-                }`}>
-                  {isExtractingZip ? (
-                    <div className="flex items-center justify-center gap-3">
-                      <Loader2 className="animate-spin text-indigo-400" size={24} />
-                      <span className="text-indigo-300">正在解压并识别文件...</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2">
-                      <FolderOpen className="text-indigo-400" size={32} />
-                      <span className="text-white font-medium">点击或拖拽上传 ZIP 压缩包</span>
-                      <span className="text-xs text-slate-400">
-                        文件命名格式：H10反查总表.xlsx, 自身ASIN反查.xlsx, 竞品1.xlsx 等
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ZIP 匹配结果 */}
-              {zipMatchResult && (
-                <div className="mt-4 space-y-3">
-                  {/* 成功匹配的文件 */}
-                  {zipMatchResult.matched.length > 0 && (
-                    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <CheckCircle className="text-emerald-400" size={16} />
-                        <span className="text-emerald-300 font-medium text-sm">
-                          成功识别 {zipMatchResult.matched.length} 个文件
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {zipMatchResult.matched.map((m) => (
-                          <span key={m.type} className="text-xs bg-emerald-500/20 text-emerald-200 px-2 py-1 rounded">
-                            {FILE_CONFIG.find(c => c.type === m.type)?.label}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 缺失的必填文件 */}
-                  {zipMatchResult.missingRequired.length > 0 && (
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertCircle className="text-red-400" size={16} />
-                        <span className="text-red-300 font-medium text-sm">
-                          缺少必填文件（请手动补充）
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {zipMatchResult.missingRequired.map((name) => (
-                          <span key={name} className="text-xs bg-red-500/20 text-red-200 px-2 py-1 rounded">
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 未能匹配的文件 */}
-                  {zipMatchResult.unmatched.length > 0 && (
-                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertCircle className="text-amber-400" size={16} />
-                        <span className="text-amber-300 font-medium text-sm">
-                          以下文件未能识别（已忽略）
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {zipMatchResult.unmatched.map((name) => (
-                          <span key={name} className="text-xs bg-amber-500/20 text-amber-200 px-2 py-1 rounded truncate max-w-[200px]">
-                            {name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* 分隔线 */}
-            <div className="flex items-center gap-4">
-              <div className="flex-1 h-px bg-slate-700"></div>
-              <span className="text-slate-500 text-sm">或者逐个上传文件</span>
-              <div className="flex-1 h-px bg-slate-700"></div>
             </div>
 
             {/* 文件上传网格 */}
@@ -870,3 +617,5 @@ function TaskHistoryCard({
     </div>
   );
 }
+
+
