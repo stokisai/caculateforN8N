@@ -3,28 +3,47 @@
 import { useMemo, useState, useCallback } from "react";
 import { 
   LogOut, Upload, FileSpreadsheet, CheckCircle, Loader2, 
-  Download, AlertCircle, X, ArrowLeft, Trash2, Info, LayoutGrid, Clock, ChevronRight
+  Download, AlertCircle, X, ArrowLeft, Trash2, Archive, FolderOpen
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { KeywordTask, KeywordFileType } from "@/types/supabase";
+import JSZip from "jszip";
 
 // 文件类型配置
-const FILE_CONFIG: { type: KeywordFileType; label: string; required: boolean; group: 'main' | 'compete' | 'base' }[] = [
-  { type: "h10_main", label: "H10反查总表", required: true, group: 'main' },
-  { type: "self_asin", label: "自身ASIN反查", required: true, group: 'main' },
-  { type: "competitor_aba", label: "竞对ABA热搜词反查", required: true, group: 'main' },
-  { type: "competitor_1", label: "竞品1", required: false, group: 'compete' },
-  { type: "competitor_2", label: "竞品2", required: false, group: 'compete' },
-  { type: "competitor_3", label: "竞品3", required: false, group: 'compete' },
-  { type: "competitor_4", label: "竞品4", required: false, group: 'compete' },
-  { type: "competitor_5", label: "竞品5", required: false, group: 'compete' },
-  { type: "competitor_6", label: "竞品6", required: false, group: 'compete' },
-  { type: "competitor_7", label: "竞品7", required: false, group: 'compete' },
-  { type: "competitor_8", label: "竞品8", required: false, group: 'compete' },
-  { type: "competitor_9", label: "竞品9", required: false, group: 'compete' },
-  { type: "competitor_10", label: "竞品10", required: false, group: 'compete' },
-  { type: "keyword_base", label: "拓词基础表", required: true, group: 'base' },
+const FILE_CONFIG: { type: KeywordFileType; label: string; required: boolean }[] = [
+  { type: "h10_main", label: "H10反查总表", required: true },
+  { type: "self_asin", label: "自身ASIN反查", required: true },
+  { type: "competitor_aba", label: "竞对ABA热搜词反查", required: true },
+  { type: "competitor_1", label: "竞品1", required: false },
+  { type: "competitor_2", label: "竞品2", required: false },
+  { type: "competitor_3", label: "竞品3", required: false },
+  { type: "competitor_4", label: "竞品4", required: false },
+  { type: "competitor_5", label: "竞品5", required: false },
+  { type: "competitor_6", label: "竞品6", required: false },
+  { type: "competitor_7", label: "竞品7", required: false },
+  { type: "competitor_8", label: "竞品8", required: false },
+  { type: "competitor_9", label: "竞品9", required: false },
+  { type: "competitor_10", label: "竞品10", required: false },
+  { type: "keyword_base", label: "拓词基础表", required: true },
 ];
+
+// 文件名匹配规则（按优先级排序）
+const FILE_PATTERNS: Record<KeywordFileType, string[]> = {
+  h10_main: ["H10反查总表", "H10"],
+  self_asin: ["自身ASIN反查", "自身ASIN", "自身"],
+  competitor_aba: ["竞对ABA热搜词反查", "竞对ABA", "ABA热搜词", "竞对"],
+  competitor_1: ["竞品1：", "竞品1:", "竞品1", "竞品 1"],
+  competitor_2: ["竞品2：", "竞品2:", "竞品2", "竞品 2"],
+  competitor_3: ["竞品3：", "竞品3:", "竞品3", "竞品 3"],
+  competitor_4: ["竞品4：", "竞品4:", "竞品4", "竞品 4"],
+  competitor_5: ["竞品5：", "竞品5:", "竞品5", "竞品 5"],
+  competitor_6: ["竞品6：", "竞品6:", "竞品6", "竞品 6"],
+  competitor_7: ["竞品7：", "竞品7:", "竞品7", "竞品 7"],
+  competitor_8: ["竞品8：", "竞品8:", "竞品8", "竞品 8"],
+  competitor_9: ["竞品9：", "竞品9:", "竞品9", "竞品 9"],
+  competitor_10: ["竞品10：", "竞品10:", "竞品10", "竞品 10"],
+  keyword_base: ["拓词基础表", "基础表", "拓词"],
+};
 
 interface FileUploadState {
   file: File | null;
@@ -51,6 +70,7 @@ export default function KeywordToolClient({
 }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   
+  // 文件状态
   const [files, setFiles] = useState<FilesState>(() => {
     const initial: Partial<FilesState> = {};
     FILE_CONFIG.forEach(config => {
@@ -59,14 +79,26 @@ export default function KeywordToolClient({
     return initial as FilesState;
   });
   
+  // 任务状态
   const [taskId, setTaskId] = useState<string | null>(null);
   const [taskStatus, setTaskStatus] = useState<string>("idle");
   const [taskProgress, setTaskProgress] = useState(0);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // 历史任务
   const [tasks, setTasks] = useState<KeywordTask[]>(recentTasks);
 
+  // ZIP 上传状态
+  const [isExtractingZip, setIsExtractingZip] = useState(false);
+  const [zipMatchResult, setZipMatchResult] = useState<{
+    matched: { type: KeywordFileType; fileName: string }[];
+    unmatched: string[];
+    missingRequired: string[];
+  } | null>(null);
+
+  // 处理文件选择
   const handleFileSelect = useCallback((fileType: KeywordFileType, file: File | null) => {
     setFiles(prev => ({
       ...prev,
@@ -77,8 +109,11 @@ export default function KeywordToolClient({
         error: null,
       }
     }));
+    // 清除 ZIP 匹配结果
+    setZipMatchResult(null);
   }, []);
 
+  // 清除文件
   const handleFileClear = useCallback((fileType: KeywordFileType) => {
     setFiles(prev => ({
       ...prev,
@@ -86,19 +121,131 @@ export default function KeywordToolClient({
     }));
   }, []);
 
+  // 处理 ZIP 文件上传
+  const handleZipUpload = useCallback(async (zipFile: File) => {
+    if (!zipFile.name.toLowerCase().endsWith('.zip')) {
+      alert('请上传 ZIP 格式的压缩包');
+      return;
+    }
+
+    setIsExtractingZip(true);
+    setErrorMsg(null);
+    setZipMatchResult(null);
+
+    try {
+      const zip = new JSZip();
+      const zipContent = await zip.loadAsync(zipFile);
+      
+      // 获取所有 Excel 文件（排除临时文件和 Mac 系统文件）
+      const excelFiles: { name: string; file: JSZip.JSZipObject }[] = [];
+      
+      zipContent.forEach((relativePath, file) => {
+        // 排除目录、临时文件、Mac 系统文件
+        if (file.dir) return;
+        if (relativePath.startsWith('__MACOSX/')) return;
+        if (relativePath.startsWith('.')) return;
+        if (relativePath.includes('/._')) return;
+        
+        const fileName = relativePath.split('/').pop() || '';
+        if (fileName.startsWith('~$')) return; // Excel 临时文件
+        
+        if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+          excelFiles.push({ name: fileName, file });
+        }
+      });
+
+      if (excelFiles.length === 0) {
+        setErrorMsg('压缩包中没有找到 Excel 文件');
+        setIsExtractingZip(false);
+        return;
+      }
+
+      // 匹配文件
+      const matched: { type: KeywordFileType; fileName: string; file: File }[] = [];
+      const usedFiles = new Set<string>();
+
+      // 按照 FILE_CONFIG 的顺序匹配，确保优先级正确
+      for (const config of FILE_CONFIG) {
+        const patterns = FILE_PATTERNS[config.type];
+        
+        // 查找匹配的文件
+        let matchedFile: { name: string; file: JSZip.JSZipObject } | null = null;
+        
+        for (const pattern of patterns) {
+          for (const excelFile of excelFiles) {
+            if (usedFiles.has(excelFile.name)) continue;
+            
+            if (excelFile.name.includes(pattern)) {
+              matchedFile = excelFile;
+              break;
+            }
+          }
+          if (matchedFile) break;
+        }
+
+        if (matchedFile) {
+          usedFiles.add(matchedFile.name);
+          // 将 JSZip 文件转换为 File 对象
+          const blob = await matchedFile.file.async('blob');
+          const file = new File([blob], matchedFile.name, { 
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+          });
+          matched.push({ type: config.type, fileName: matchedFile.name, file });
+        }
+      }
+
+      // 找出未匹配的文件
+      const unmatched = excelFiles
+        .filter(f => !usedFiles.has(f.name))
+        .map(f => f.name);
+
+      // 找出缺失的必填文件
+      const matchedTypes = new Set(matched.map(m => m.type));
+      const missingRequired = FILE_CONFIG
+        .filter(c => c.required && !matchedTypes.has(c.type))
+        .map(c => c.label);
+
+      // 更新文件状态
+      const newFiles: Partial<FilesState> = {};
+      FILE_CONFIG.forEach(config => {
+        const matchedItem = matched.find(m => m.type === config.type);
+        newFiles[config.type] = matchedItem 
+          ? { file: matchedItem.file, uploading: false, uploaded: false, error: null }
+          : { ...initialFileState };
+      });
+      setFiles(newFiles as FilesState);
+
+      // 设置匹配结果
+      setZipMatchResult({
+        matched: matched.map(m => ({ type: m.type, fileName: m.fileName })),
+        unmatched,
+        missingRequired,
+      });
+
+    } catch (error) {
+      console.error('ZIP 解压错误:', error);
+      setErrorMsg('解压压缩包失败，请确保文件格式正确');
+    } finally {
+      setIsExtractingZip(false);
+    }
+  }, []);
+
+  // 检查必填文件是否都已选择
   const requiredFilesSelected = useMemo(() => {
     return FILE_CONFIG
       .filter(c => c.required)
       .every(c => files[c.type].file !== null);
   }, [files]);
 
+  // 获取已选择的文件数量
   const selectedFilesCount = useMemo(() => {
     return Object.values(files).filter(f => f.file !== null).length;
   }, [files]);
 
+  // 提交任务
   const handleSubmit = async () => {
     if (!requiredFilesSelected) {
-      setErrorMsg("请先上传标记为 '*' 的必填文件");
+      setErrorMsg("请上传所有必填文件");
       return;
     }
 
@@ -108,41 +255,71 @@ export default function KeywordToolClient({
     setTaskProgress(0);
 
     try {
+      // 1. 创建任务记录
       const { data: task, error: taskError } = await supabase
         .from("keyword_tasks")
         .insert({ user_id: user.id, status: "pending", progress: 0 })
         .select()
         .single();
 
-      if (taskError || !task) throw new Error(taskError?.message || "创建任务失败");
+      if (taskError || !task) {
+        throw new Error(taskError?.message || "创建任务失败");
+      }
 
       setTaskId(task.id);
       setTaskProgress(5);
 
+      // 2. 上传所有文件到 Storage
       const fileRecords: { file_type: KeywordFileType; storage_path: string; file_name: string; file_size: number }[] = [];
       const filesToUpload = Object.entries(files).filter(([, state]) => state.file !== null);
       
       for (let i = 0; i < filesToUpload.length; i++) {
         const [fileType, state] = filesToUpload[i] as [KeywordFileType, FileUploadState];
         const file = state.file!;
+        
         const storagePath = `${user.id}/${task.id}/${fileType}_${Date.now()}.xlsx`;
         
-        setFiles(prev => ({ ...prev, [fileType]: { ...prev[fileType], uploading: true } }));
+        setFiles(prev => ({
+          ...prev,
+          [fileType]: { ...prev[fileType], uploading: true }
+        }));
 
-        const { error: uploadError } = await supabase.storage.from("keyword-files").upload(storagePath, file);
-        if (uploadError) throw new Error(`上传 ${FILE_CONFIG.find(c => c.type === fileType)?.label} 失败`);
+        const { error: uploadError } = await supabase.storage
+          .from("keyword-files")
+          .upload(storagePath, file);
 
-        fileRecords.push({ file_type: fileType, storage_path: storagePath, file_name: file.name, file_size: file.size });
-        setFiles(prev => ({ ...prev, [fileType]: { ...prev[fileType], uploading: false, uploaded: true } }));
+        if (uploadError) {
+          throw new Error(`上传 ${FILE_CONFIG.find(c => c.type === fileType)?.label} 失败: ${uploadError.message}`);
+        }
+
+        fileRecords.push({
+          file_type: fileType,
+          storage_path: storagePath,
+          file_name: file.name,
+          file_size: file.size,
+        });
+
+        setFiles(prev => ({
+          ...prev,
+          [fileType]: { ...prev[fileType], uploading: false, uploaded: true }
+        }));
+
         setTaskProgress(5 + Math.round((i + 1) / filesToUpload.length * 20));
       }
 
-      const { error: filesError } = await supabase.from("keyword_task_files").insert(fileRecords.map(r => ({ ...r, task_id: task.id })));
-      if (filesError) throw new Error("保存文件记录失败");
+      // 3. 保存文件记录到数据库
+      const { error: filesError } = await supabase
+        .from("keyword_task_files")
+        .insert(fileRecords.map(r => ({ ...r, task_id: task.id })));
+
+      if (filesError) {
+        throw new Error(`保存文件记录失败: ${filesError.message}`);
+      }
 
       setTaskProgress(30);
       setTaskStatus("processing");
 
+      // 4. 调用后端处理 API
       const response = await fetch("/api/keyword-tool/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,51 +328,79 @@ export default function KeywordToolClient({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "后端处理请求失败");
+        throw new Error(errorData.error || "处理请求失败");
       }
 
+      // 5. 轮询任务状态
       pollTaskStatus(task.id);
+
     } catch (error) {
+      console.error("Submit error:", error);
       setErrorMsg(error instanceof Error ? error.message : "提交失败");
       setTaskStatus("failed");
       setIsSubmitting(false);
     }
   };
 
+  // 轮询任务状态
   const pollTaskStatus = async (id: string) => {
     const poll = async () => {
-      const { data: task, error } = await supabase.from("keyword_tasks").select("*").eq("id", id).single();
+      const { data: task, error } = await supabase
+        .from("keyword_tasks")
+        .select("*")
+        .eq("id", id)
+        .single();
+
       if (error || !task) {
-        setErrorMsg("同步任务进度失败");
+        setErrorMsg("获取任务状态失败");
         setTaskStatus("failed");
         setIsSubmitting(false);
         return;
       }
+
       setTaskProgress(task.progress ?? 0);
       setTaskStatus(task.status ?? "pending");
+
       if (task.status === "success") {
         setResultUrl(task.result_url);
         setIsSubmitting(false);
+        // 刷新任务列表
         refreshTasks();
       } else if (task.status === "failed") {
         setErrorMsg(task.error_msg || "处理失败");
         setIsSubmitting(false);
       } else {
+        // 继续轮询
         setTimeout(poll, 2000);
       }
     };
+
     poll();
   };
 
+  // 刷新任务列表
   const refreshTasks = async () => {
-    const { data } = await supabase.from("keyword_tasks").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10);
-    if (data) setTasks(data);
+    const { data } = await supabase
+      .from("keyword_tasks")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    
+    if (data) {
+      setTasks(data);
+    }
   };
 
+  // 下载结果
   const handleDownload = async (downloadTaskId: string) => {
     try {
       const response = await fetch(`/api/keyword-tool/download/${downloadTaskId}`);
-      if (!response.ok) throw new Error("下载失败");
+      
+      if (!response.ok) {
+        throw new Error("下载失败");
+      }
+
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -206,137 +411,228 @@ export default function KeywordToolClient({
       URL.revokeObjectURL(blobUrl);
       document.body.removeChild(a);
     } catch (error) {
-      alert("下载失败");
+      console.error("Download error:", error);
+      alert("下载失败，请重试");
     }
   };
 
+  // 重置表单
   const handleReset = () => {
     setFiles(() => {
       const initial: Partial<FilesState> = {};
-      FILE_CONFIG.forEach(config => { initial[config.type] = { ...initialFileState }; });
+      FILE_CONFIG.forEach(config => {
+        initial[config.type] = { ...initialFileState };
+      });
       return initial as FilesState;
     });
-    setTaskId(null); setTaskStatus("idle"); setTaskProgress(0); setResultUrl(null); setErrorMsg(null); setIsSubmitting(false);
+    setTaskId(null);
+    setTaskStatus("idle");
+    setTaskProgress(0);
+    setResultUrl(null);
+    setErrorMsg(null);
+    setIsSubmitting(false);
+    setZipMatchResult(null);
   };
 
+  // 登出
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     window.location.href = "/login";
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 font-sans antialiased">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* 顶部导航 */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
-          <div className="flex items-center gap-6">
-            <a 
-              href="/dashboard" 
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-slate-700 hover:bg-slate-50 transition-all border border-slate-300 shadow-sm font-bold"
-            >
+      <header className="border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <a href="/dashboard" className="text-slate-400 hover:text-white transition-colors">
               <ArrowLeft size={20} />
-              <span>返回工作台</span>
             </a>
-            <div className="h-8 w-px bg-slate-200" />
             <div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                易逊关键词库搭建工具
-                <span className="bg-indigo-600 text-white text-[12px] px-2 py-0.5 rounded-md font-black">V2.0</span>
-              </h1>
+              <h1 className="text-xl font-bold text-white">易逊跨境关键词词库搭建工具</h1>
+              <p className="text-sm text-slate-400">上传Excel文件，自动分类标记关键词</p>
             </div>
           </div>
-          <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-200">
-            <div className="text-right">
-              <p className="text-[11px] text-slate-500 font-bold">登录账号</p>
-              <p className="text-sm font-bold text-slate-800">{user.email}</p>
-            </div>
-            <button onClick={handleSignOut} className="p-2 text-slate-400 hover:text-red-600 transition-colors">
-              <LogOut size={22} />
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-slate-400">{user.email}</span>
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-2 text-sm text-slate-400 hover:text-red-400 transition-colors"
+            >
+              <LogOut size={16} /> 退出
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          
-          <div className="lg:col-span-8 space-y-8">
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* 左侧：文件上传区域 */}
+          <div className="lg:col-span-2 space-y-6">
             {/* 说明卡片 */}
-            <div className="bg-white rounded-3xl p-8 border-2 border-indigo-100 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
-                  <Info size={24} />
-                </div>
-                <h2 className="text-xl font-black text-slate-900">操作说明</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[
-                  { title: "1. 准备数据", text: "上传 14 个 Excel 业务报表" },
-                  { title: "2. 逻辑标记", text: "系统自动计算三维度分类" },
-                  { title: "3. 一键下载", text: "直接获取标准词库 Excel" }
-                ].map((item, i) => (
-                  <div key={i} className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
-                    <p className="font-black text-indigo-600 mb-1">{item.title}</p>
-                    <p className="text-sm text-slate-600 font-bold leading-snug">{item.text}</p>
-                  </div>
-                ))}
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+              <h2 className="text-lg font-semibold text-white mb-3">📋 使用说明</h2>
+              <div className="text-sm text-slate-300 space-y-2">
+                <p>1. 上传 <span className="text-amber-400 font-medium">14个Excel文件</span>（标有 * 的为必填）</p>
+                <p>2. 系统将自动处理并生成三列分类：<span className="text-emerald-400">关键词类别</span>、<span className="text-blue-400">相关性分类</span>、<span className="text-purple-400">流量大小分类</span></p>
+                <p>3. 处理完成后可下载结果Excel文件</p>
               </div>
             </div>
 
-            {/* 文件上传核心区 */}
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            {/* ZIP 快速上传 */}
+            <div className="bg-gradient-to-r from-indigo-900/50 to-purple-900/50 border border-indigo-500/30 rounded-xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Archive className="text-indigo-400" size={24} />
                 <div>
-                  <h2 className="text-2xl font-black text-slate-900 mb-1">文件上传</h2>
-                  <p className="text-base text-slate-500 font-bold">请确保必填项 (*) 全部上传</p>
-                </div>
-                <div className="bg-white px-6 py-4 rounded-2xl border-2 border-slate-200 shadow-sm text-center min-w-[120px]">
-                  <p className="text-[12px] text-slate-400 font-black uppercase tracking-widest mb-1">已选文件</p>
-                  <p className="text-2xl font-mono text-slate-900 font-black">{selectedFilesCount} / {FILE_CONFIG.length}</p>
+                  <h2 className="text-lg font-semibold text-white">📦 快速上传（推荐）</h2>
+                  <p className="text-sm text-slate-400">上传 ZIP 压缩包，系统自动识别文件</p>
                 </div>
               </div>
               
-              <div className="p-8 space-y-10">
-                {[
-                  { id: 'main', label: '核心反查表 (必填)', color: 'indigo' },
-                  { id: 'compete', label: '竞品分析表 (选填)', color: 'emerald' },
-                  { id: 'base', label: '拓词基础表 (必填)', color: 'amber' }
-                ].map(group => (
-                  <div key={group.id} className="space-y-5">
-                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] px-1 border-l-4 border-current">{group.label}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                      {FILE_CONFIG.filter(c => c.group === group.id).map((config) => (
-                        <FileUploadCard
-                          key={config.type}
-                          config={config}
-                          state={files[config.type]}
-                          onSelect={(file: File | null) => handleFileSelect(config.type, file)}
-                          onClear={() => handleFileClear(config.type)}
-                          disabled={isSubmitting}
-                        />
-                      ))}
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".zip"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleZipUpload(file);
+                    e.target.value = ''; // 重置 input
+                  }}
+                  disabled={isSubmitting || isExtractingZip}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
+                />
+                <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${
+                  isExtractingZip 
+                    ? 'border-indigo-400 bg-indigo-500/10' 
+                    : 'border-indigo-500/50 hover:border-indigo-400 hover:bg-indigo-500/5'
+                }`}>
+                  {isExtractingZip ? (
+                    <div className="flex items-center justify-center gap-3">
+                      <Loader2 className="animate-spin text-indigo-400" size={24} />
+                      <span className="text-indigo-300">正在解压并识别文件...</span>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <FolderOpen className="text-indigo-400" size={32} />
+                      <span className="text-white font-medium">点击或拖拽上传 ZIP 压缩包</span>
+                      <span className="text-xs text-slate-400">
+                        文件命名格式：H10反查总表.xlsx, 自身ASIN反查.xlsx, 竞品1.xlsx 等
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ZIP 匹配结果 */}
+              {zipMatchResult && (
+                <div className="mt-4 space-y-3">
+                  {/* 成功匹配的文件 */}
+                  {zipMatchResult.matched.length > 0 && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle className="text-emerald-400" size={16} />
+                        <span className="text-emerald-300 font-medium text-sm">
+                          成功识别 {zipMatchResult.matched.length} 个文件
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {zipMatchResult.matched.map((m) => (
+                          <span key={m.type} className="text-xs bg-emerald-500/20 text-emerald-200 px-2 py-1 rounded">
+                            {FILE_CONFIG.find(c => c.type === m.type)?.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 缺失的必填文件 */}
+                  {zipMatchResult.missingRequired.length > 0 && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="text-red-400" size={16} />
+                        <span className="text-red-300 font-medium text-sm">
+                          缺少必填文件（请手动补充）
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {zipMatchResult.missingRequired.map((name) => (
+                          <span key={name} className="text-xs bg-red-500/20 text-red-200 px-2 py-1 rounded">
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 未能匹配的文件 */}
+                  {zipMatchResult.unmatched.length > 0 && (
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="text-amber-400" size={16} />
+                        <span className="text-amber-300 font-medium text-sm">
+                          以下文件未能识别（已忽略）
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {zipMatchResult.unmatched.map((name) => (
+                          <span key={name} className="text-xs bg-amber-500/20 text-amber-200 px-2 py-1 rounded truncate max-w-[200px]">
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 分隔线 */}
+            <div className="flex items-center gap-4">
+              <div className="flex-1 h-px bg-slate-700"></div>
+              <span className="text-slate-500 text-sm">或者逐个上传文件</span>
+              <div className="flex-1 h-px bg-slate-700"></div>
+            </div>
+
+            {/* 文件上传网格 */}
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-white">📁 上传文件</h2>
+                <span className="text-sm text-slate-400">
+                  已选择 {selectedFilesCount} / {FILE_CONFIG.length} 个文件
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {FILE_CONFIG.map((config) => (
+                  <FileUploadCard
+                    key={config.type}
+                    config={config}
+                    state={files[config.type]}
+                    onSelect={(file) => handleFileSelect(config.type, file)}
+                    onClear={() => handleFileClear(config.type)}
+                    disabled={isSubmitting}
+                  />
                 ))}
               </div>
             </div>
 
-            {/* 操作控制台 */}
-            <div className="bg-white/90 backdrop-blur-xl border border-slate-200 p-6 rounded-3xl shadow-xl flex gap-6 items-center">
+            {/* 操作按钮 */}
+            <div className="flex gap-4">
               <button
                 onClick={handleSubmit}
                 disabled={!requiredFilesSelected || isSubmitting}
-                className="flex-1 h-16 bg-slate-900 hover:bg-indigo-600 disabled:bg-slate-200 text-white rounded-2xl font-black text-xl transition-all flex justify-center items-center gap-4 shadow-xl active:scale-[0.98] group"
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 rounded-xl font-bold text-lg hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-3 transition-all shadow-lg shadow-emerald-500/25"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="animate-spin text-indigo-400" size={28} />
-                    <span>处理中，请稍后...</span>
+                    <Loader2 className="animate-spin" size={24} />
+                    处理中...
                   </>
                 ) : (
                   <>
                     <Upload size={24} />
-                    <span>立即开始搭建词库</span>
+                    开始搭建词库
                   </>
                 )}
               </button>
@@ -345,111 +641,85 @@ export default function KeywordToolClient({
                 <button
                   onClick={handleReset}
                   disabled={isSubmitting && taskStatus === "processing"}
-                  className="w-16 h-16 flex items-center justify-center bg-white text-slate-400 rounded-2xl hover:text-red-600 transition-all border-2 border-slate-200 hover:border-red-200 disabled:opacity-20"
-                  title="重置"
+                  className="px-6 py-4 bg-slate-700 text-slate-300 rounded-xl font-medium hover:bg-slate-600 disabled:opacity-50 transition-colors"
                 >
-                  <Trash2 size={28} />
+                  <Trash2 size={20} />
                 </button>
               )}
             </div>
 
-            {/* 进度条 */}
+            {/* 进度显示 */}
             {taskStatus !== "idle" && (
-              <div className="bg-white border border-slate-200 rounded-3xl p-10 shadow-lg space-y-8 animate-in fade-in zoom-in-95 duration-500">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-inner">
-                      <Loader2 className={taskStatus === 'processing' || taskStatus === 'uploading' ? "animate-spin" : ""} size={32} />
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-black text-slate-900">执行管道任务</h3>
-                      <p className="text-sm text-slate-500 font-bold">任务号: {taskId}</p>
-                    </div>
-                  </div>
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-white font-medium">处理进度</h3>
                   <StatusBadge status={taskStatus} />
                 </div>
                 
-                <div className="space-y-4">
-                  <div className="flex justify-between items-end">
-                    <span className="text-base font-black text-slate-500 uppercase">进度详情</span>
-                    <span className="text-4xl font-mono text-slate-900 font-black">{taskProgress}%</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-6 p-1.5 shadow-inner border border-slate-200">
-                    <div 
-                      className="bg-indigo-600 h-full rounded-full transition-all duration-1000 ease-out shadow-lg relative overflow-hidden"
-                      style={{ width: `${taskProgress}%` }}
-                    >
-                      <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.4)_50%,transparent_100%)] animate-[shimmer_2s_infinite] bg-[length:200%_100%]" />
-                    </div>
-                  </div>
+                <div className="w-full bg-slate-700 rounded-full h-3 mb-4">
+                  <div 
+                    className="bg-gradient-to-r from-emerald-500 to-teal-500 h-3 rounded-full transition-all duration-500"
+                    style={{ width: `${taskProgress}%` }}
+                  />
                 </div>
+                
+                <p className="text-sm text-slate-400 text-center">{taskProgress}% 完成</p>
 
                 {errorMsg && (
-                  <div className="p-6 bg-red-50 border-2 border-red-100 rounded-2xl flex items-start gap-4">
-                    <AlertCircle className="text-red-600 shrink-0 mt-1" size={24} />
-                    <div className="flex-1">
-                      <p className="text-lg font-black text-red-700">系统错误</p>
-                      <p className="text-base text-red-600/80 font-bold leading-relaxed">{errorMsg}</p>
-                    </div>
+                  <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-3">
+                    <AlertCircle className="text-red-400 flex-shrink-0 mt-0.5" size={18} />
+                    <p className="text-sm text-red-300">{errorMsg}</p>
                   </div>
                 )}
 
                 {taskStatus === "success" && taskId && (
                   <button
                     onClick={() => handleDownload(taskId)}
-                    className="w-full bg-green-600 text-white h-20 rounded-2xl font-black text-2xl flex items-center justify-center gap-4 hover:bg-green-700 transition-all shadow-xl shadow-green-100 hover:scale-[1.01] active:scale-[0.99]"
+                    className="mt-4 w-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 hover:from-blue-600 hover:to-indigo-600 transition-all"
                   >
-                    <Download size={32} />
-                    <span>下载处理结果 (.xlsx)</span>
+                    <Download size={20} />
+                    下载结果文件
                   </button>
                 )}
               </div>
             )}
           </div>
 
-          {/* 右侧历史 */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50">
-                <Clock className="text-slate-400" size={20} />
-                <h2 className="text-lg font-black text-slate-900 tracking-tight">运行历史</h2>
-              </div>
+          {/* 右侧：历史任务 */}
+          <div className="space-y-6">
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+              <h2 className="text-lg font-semibold text-white mb-4">📜 历史任务</h2>
               
-              <div className="p-6 space-y-5 max-h-[800px] overflow-y-auto">
-                {tasks.length === 0 ? (
-                  <div className="text-center py-20 text-slate-300">
-                    <Clock size={48} className="mx-auto mb-4 opacity-20" />
-                    <p className="font-bold">暂无历史记录</p>
-                  </div>
-                ) : (
-                  tasks.map((task) => (
-                    <TaskHistoryCard key={task.id} task={task} onDownload={handleDownload} />
-                  ))
-                )}
-              </div>
+              {tasks.length === 0 ? (
+                <p className="text-slate-500 text-sm text-center py-8">暂无历史任务</p>
+              ) : (
+                <div className="space-y-3">
+                  {tasks.map((task) => (
+                    <TaskHistoryCard
+                      key={task.id}
+                      task={task}
+                      onDownload={handleDownload}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </main>
-
-      <style jsx global>{`
-        @keyframes shimmer {
-          from { background-position: -200% 0; }
-          to { background-position: 200% 0; }
-        }
-      `}</style>
     </div>
   );
 }
 
+// 文件上传卡片组件
 function FileUploadCard({ 
   config, 
   state, 
   onSelect, 
-  onClear, 
+  onClear,
   disabled 
 }: { 
-  config: typeof FILE_CONFIG[0];
+  config: { type: KeywordFileType; label: string; required: boolean };
   state: FileUploadState;
   onSelect: (file: File | null) => void;
   onClear: () => void;
@@ -458,94 +728,95 @@ function FileUploadCard({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     if (file) {
+      // 验证文件类型
       if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-        alert('请上传 Excel 文件');
+        alert('请上传 Excel 文件 (.xlsx 或 .xls)');
         return;
       }
       onSelect(file);
     }
   };
 
-  const isSelected = !!state.file;
-
   return (
     <div 
-      className={`group relative rounded-2xl p-6 transition-all duration-300 border-2 ${
-        isSelected 
-          ? 'border-indigo-600 bg-white shadow-md' 
-          : 'border-slate-200 bg-white hover:border-indigo-300'
-      } ${disabled ? 'opacity-40 grayscale' : 'cursor-pointer'}`}
+      className={`relative border-2 border-dashed rounded-xl p-4 transition-all ${
+        state.file 
+          ? 'border-emerald-500/50 bg-emerald-500/5' 
+          : 'border-slate-600 hover:border-slate-500 bg-slate-800/30'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
-      {!isSelected && (
-        <input
-          type="file"
-          accept=".xlsx,.xls"
-          onChange={handleChange}
-          disabled={disabled}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-        />
-      )}
+      <input
+        type="file"
+        accept=".xlsx,.xls"
+        onChange={handleChange}
+        disabled={disabled}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+      />
       
-      <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-start">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
-            isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 group-hover:text-indigo-600'
-          }`}>
-            {isSelected ? <CheckCircle size={24} /> : <Upload size={24} />}
-          </div>
-          {config.required && !isSelected && (
-            <span className="text-[11px] font-black text-white bg-red-500 px-2 py-0.5 rounded shadow-sm">必填</span>
-          )}
-        </div>
-
-        <div className="min-w-0">
-          <p className={`text-lg font-black truncate ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
-            {config.label}
-          </p>
-          
-          <div className="mt-1">
-            {isSelected ? (
-              <span className="text-sm text-indigo-600 font-black truncate block font-mono">{state.file!.name}</span>
-            ) : (
-              <span className="text-xs text-slate-400 font-bold uppercase tracking-tighter">点击上传</span>
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-medium text-white truncate">
+              {config.label}
+            </span>
+            {config.required && (
+              <span className="text-red-400 text-xs">*</span>
             )}
           </div>
+          
+          {state.file ? (
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="text-emerald-400 flex-shrink-0" size={16} />
+              <span className="text-xs text-emerald-300 truncate">{state.file.name}</span>
+              {state.uploaded && <CheckCircle className="text-emerald-400 flex-shrink-0" size={14} />}
+              {state.uploading && <Loader2 className="text-blue-400 animate-spin flex-shrink-0" size={14} />}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">点击选择文件</p>
+          )}
         </div>
         
-        {isSelected && !disabled && (
-          <button onClick={(e) => { e.stopPropagation(); onClear(); }} className="absolute top-2 right-2 p-2 text-slate-300 hover:text-red-600">
-            <X size={20} />
+        {state.file && !disabled && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear();
+            }}
+            className="p-1 text-slate-400 hover:text-red-400 transition-colors"
+          >
+            <X size={14} />
           </button>
         )}
       </div>
+
+      {state.error && (
+        <p className="mt-2 text-xs text-red-400">{state.error}</p>
+      )}
     </div>
   );
 }
 
+// 状态徽章组件
 function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { label: string; color: string }> = {
-    idle: { label: "就绪", color: "slate" },
-    uploading: { label: "同步中", color: "blue" },
-    processing: { label: "分析中", color: "amber" },
-    success: { label: "已完成", color: "green" },
-    failed: { label: "失败", color: "red" },
-    pending: { label: "排队", color: "slate" },
+  const config: Record<string, { label: string; className: string }> = {
+    idle: { label: "就绪", className: "bg-slate-600 text-slate-300" },
+    uploading: { label: "上传中", className: "bg-blue-500/20 text-blue-300" },
+    processing: { label: "处理中", className: "bg-amber-500/20 text-amber-300" },
+    success: { label: "完成", className: "bg-emerald-500/20 text-emerald-300" },
+    failed: { label: "失败", className: "bg-red-500/20 text-red-300" },
+    pending: { label: "等待中", className: "bg-slate-500/20 text-slate-300" },
   };
-  const { label, color } = config[status] || config.pending;
-  const colorMap: Record<string, string> = {
-    slate: "bg-slate-100 text-slate-600 border-slate-200",
-    blue: "bg-blue-100 text-blue-700 border-blue-200",
-    amber: "bg-amber-100 text-amber-700 border-amber-200",
-    green: "bg-green-100 text-green-700 border-green-200",
-    red: "bg-red-100 text-red-700 border-red-200"
-  };
+
+  const { label, className } = config[status] || config.pending;
+
   return (
-    <div className={`px-4 py-1.5 rounded-full border-2 font-black text-sm ${colorMap[color]}`}>
+    <span className={`px-3 py-1 rounded-full text-xs font-medium ${className}`}>
       {label}
-    </div>
+    </span>
   );
 }
 
+// 历史任务卡片组件
 function TaskHistoryCard({ 
   task, 
   onDownload 
@@ -553,29 +824,49 @@ function TaskHistoryCard({
   task: KeywordTask; 
   onDownload: (taskId: string) => void;
 }) {
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   const status = task.status ?? "pending";
-  const isSuccess = status === "success";
-  const date = new Date(task.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   
   return (
-    <div className={`rounded-2xl p-5 border-2 transition-all ${isSuccess ? 'border-slate-100 hover:border-indigo-600 shadow-sm hover:shadow-md' : 'border-slate-50'}`}>
-      <div className="flex justify-between items-center mb-4">
-        <span className="text-sm font-black text-slate-900 font-mono tracking-tighter">{date}</span>
+    <div className="bg-slate-700/30 rounded-lg p-3">
+      <div className="flex justify-between items-start mb-2">
+        <span className="text-xs text-slate-400">{formatDate(task.created_at)}</span>
         <StatusBadge status={status} />
       </div>
-      {isSuccess ? (
-        <button onClick={() => onDownload(task.id)} className="w-full h-12 bg-indigo-600 text-white font-black rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-indigo-50 active:scale-95 transition-transform">
-          <Download size={18} /> 下载报表
+      
+      {status === "success" && task.result_url && (
+        <button
+          onClick={() => onDownload(task.id)}
+          className="w-full mt-2 py-2 bg-slate-600 hover:bg-slate-500 text-slate-200 text-sm rounded-lg flex items-center justify-center gap-2 transition-colors"
+        >
+          <Download size={14} />
+          下载结果
         </button>
-      ) : (
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-            <div className="bg-indigo-600 h-full transition-all" style={{ width: `${task.progress ?? 0}%` }} />
+      )}
+      
+      {status === "failed" && task.error_msg && (
+        <p className="mt-2 text-xs text-red-400 line-clamp-2">{task.error_msg}</p>
+      )}
+      
+      {status === "processing" && (
+        <div className="mt-2">
+          <div className="w-full bg-slate-600 rounded-full h-1.5">
+            <div 
+              className="bg-amber-400 h-1.5 rounded-full transition-all"
+              style={{ width: `${task.progress ?? 0}%` }}
+            />
           </div>
-          <span className="text-xs font-black text-slate-900 font-mono">{task.progress ?? 0}%</span>
         </div>
       )}
     </div>
   );
 }
-
