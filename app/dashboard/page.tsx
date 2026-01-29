@@ -26,10 +26,30 @@ export default async function DashboardPage() {
   // 类型断言：确保 services 是正确的类型
   const typedServices: Service[] = (services ?? []) as Service[];
 
+  // 确保“亚马逊顶级 Listing 专家”服务存在（若 Supabase 缺这条记录则插入一个前端兜底）
+  const listingServiceId = "b9f2b13e-2f4b-4a62-8b0e-d2f74d824230";
+  const hasListingService = typedServices.some((s) => s.id === listingServiceId);
+  const mergedServices = hasListingService
+    ? typedServices
+    : [
+        ...typedServices,
+        {
+          id: listingServiceId,
+          title: "亚马逊顶级 Listing 专家 (GEO & COSMO 增强版)",
+          description:
+            "AI 生成高转化 Amazon Listing 文案，提交产品要点/需求即可获得示例草稿。",
+          image_url:
+            "https://images.unsplash.com/photo-1522198734915-76c764a8454b?auto=format&fit=crop&w=1200&q=80",
+          webhook_url: "https://caculateforn8n-production.up.railway.app/process",
+          input_type: "text",
+          created_at: new Date().toISOString(),
+        } as Service,
+      ];
+
   // 调试日志
   console.log(
     "📦 从数据库获取的服务:",
-    typedServices.map((s) => ({
+    mergedServices.map((s) => ({
       title: s.title,
       webhook_url: s.webhook_url,
     }))
@@ -37,7 +57,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient
-      services={typedServices}
+      services={mergedServices}
       user={session.user}
     />
   );
