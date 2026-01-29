@@ -161,31 +161,79 @@ async def process_excel(
     # 新增：亚马逊顶级 Listing 专家 (GEO & COSMO 增强版) 文本服务（仅文本输入，不需要文件）
     if service_id == "b9f2b13e-2f4b-4a62-8b0e-d2f74d824230":
         if not input_text or not input_text.strip():
-            raise HTTPException(status_code=400, detail="该服务需要提供产品信息或需求描述（input_text）")
+            raise HTTPException(status_code=400, detail="?????????????????input_text?")
+        if not GEMINI_API_KEY:
+            raise HTTPException(status_code=500, detail="GEMINI_API_KEY ???")
 
-        prompt = input_text.strip()
-        # 这里简单返回占位文本，后续可接入 LLM 生成
-        draft = (
-            "【亚马逊 Listing 初稿 - GEO & COSMO 增强版】\n"
-            f"用户需求：{prompt}\n\n"
-            "当前返回示例文稿（可根据模型接入替换）：\n"
-            "- 标题示例：Premium Product Title — 关键卖点覆盖，包含品牌/规格/核心功能\n"
-            "- Bullet Points：\n"
-            "  1) 主要卖点，突出材料/耐用性/功能\n"
-            "  2) 使用场景 + 用户价值\n"
-            "  3) 规格/尺寸/兼容性\n"
-            "  4) 质保/售后/安全合规\n"
-            "  5) SEO 关键词补充\n"
-            "- 描述概要：场景化文案 + 关键信息罗列\n"
-        )
+        try:
+            import google.generativeai as genai
 
-        return JSONResponse({
-            "message": "生成成功",
-            "service_id": service_id,
-            "draft": draft,
-        })
-    
-    # 对于需要文件的服务，检查文件是否存在
+            # ????????????
+            market_code = None
+            match = re.search(r"\((US|UK|DE|FR|IT|ES|JP|CA|AU)\)", input_text, re.IGNORECASE)
+            if match:
+                market_code = match.group(1).upper()
+
+            language_map = {
+                "US": "??",
+                "UK": "??",
+                "CA": "??",
+                "AU": "??",
+                "DE": "??",
+                "FR": "??",
+                "IT": "????",
+                "ES": "????",
+                "JP": "??",
+            }
+            output_language = language_map.get(market_code, "??")
+
+            genai.configure(api_key=GEMINI_API_KEY)
+            model = genai.GenerativeModel("gemini-1.5-pro")
+
+            prompt = f"""????? Amazon Listing ?????
+??????????????? Listing ???
+
+?????
+{input_text}
+
+?????{output_language}
+
+?????
+1) ???Title?????????????<= 200 ???
+2) ?????Bullet Points??5 ???????????????????/???
+3) ?????Description??1 ?????????????????
+4) Search Terms?5-10 ????????????????
+
+???????????
+?Title?
+...
+?Bullet Points?
+1. ...
+2. ...
+3. ...
+4. ...
+5. ...
+?Description?
+...
+?Search Terms?
+...
+"""
+
+            response = model.generate_content(prompt)
+            result_text = getattr(response, "text", None) or ""
+            if not result_text.strip():
+                raise HTTPException(status_code=500, detail="Gemini ???????")
+
+            return JSONResponse({
+                "message": "????",
+                "service_id": service_id,
+                "result": result_text,
+            })
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Gemini ????: {str(e)}")
+
     if service_id != "7b83cf63-0ad0-4c11-8dc5-6d8c242fbfe6":  # 社媒选品法不需要文件
         if not file:
             raise HTTPException(status_code=400, detail="此服务需要上传文件")
