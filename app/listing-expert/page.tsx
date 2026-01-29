@@ -80,7 +80,7 @@ export default function ListingExpertPage() {
     if (keywordBank.file) parts.push(`已上传关键词词库文件: ${keywordBank.file.name}`);
     if (rfa.file) parts.push(`已上传 Rufus QA 文件: ${rfa.file.name}`);
     if (productImage.file) parts.push(`已上传产品图片: ${productImage.file.name}`);
-    return parts.join(\"\\n\");
+    return parts.join("\n");
   };
 
   const handleSubmit = async () => {
