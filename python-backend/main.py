@@ -188,7 +188,7 @@ async def process_excel(
             output_language = language_map.get(market_code, "??")
 
             genai.configure(api_key=GEMINI_API_KEY)
-            model = genai.GenerativeModel("gemini-1.5-pro")
+            model = genai.GenerativeModel("google/gemini-3-pro-preview")
 
             prompt = f"""????? Amazon Listing ?????
 ??????????????? Listing ???
