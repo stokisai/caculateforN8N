@@ -2073,7 +2073,7 @@ async def generate_product_image(visual_prompt: str, amazon_products: List[Dict]
         import google.generativeai as genai
         
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('google/gemini-3-pro-image-preview')
         
         # 下载参考图片
         async with aiohttp.ClientSession() as session:
