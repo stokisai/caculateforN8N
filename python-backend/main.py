@@ -62,6 +62,23 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 SERP_API_URL = "https://serpapi.com/search"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 REFERENCE_IMAGE_URL = "https://m.media-amazon.com/images/I/61HVDJy8R4L._SL1500_.jpg"
+GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "google/gemini-3-pro-preview")
+GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "google/gemini-3-pro-image-preview")
+
+def normalize_gemini_model(model_name: str) -> str:
+    """
+    Normalize model name for google-generativeai SDK.
+    Accepts forms like "gemini-1.5-pro", "models/gemini-1.5-pro", or "google/gemini-3-pro-preview".
+    """
+    name = (model_name or "").strip()
+    if not name:
+        return "models/gemini-1.5-pro"
+    if name.startswith("models/"):
+        return name
+    if "/" in name:
+        name = name.split("/")[-1]
+    return f"models/{name}"
+
 
 # ✅ 修复：检测占位符API密钥
 def is_placeholder_key(key: str) -> bool:
@@ -230,7 +247,7 @@ async def process_excel(
             output_language = language_map.get(market_code, "??")
 
             genai.configure(api_key=GEMINI_API_KEY)
-            model = genai.GenerativeModel("google/gemini-3-pro-preview")
+            model = genai.GenerativeModel(normalize_gemini_model(GEMINI_TEXT_MODEL))
 
             prompt = f"""????? Amazon Listing ?????
 ??????????????? Listing ???
@@ -2181,7 +2198,7 @@ async def generate_product_image(visual_prompt: str, amazon_products: List[Dict]
         import google.generativeai as genai
         
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('google/gemini-3-pro-image-preview')
+        model = genai.GenerativeModel(normalize_gemini_model(GEMINI_IMAGE_MODEL))
         
         # 下载参考图片
         async with aiohttp.ClientSession() as session:
