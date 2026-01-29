@@ -55,7 +55,7 @@ export default function ListingExpertPage() {
     helper: "可选，单文件",
   });
   const [loading, setLoading] = useState(false);
-  const [resultText, setResultText] = useState<string>(\"\");
+  const [resultText, setResultText] = useState<string>("");
 
   const handleFileChange = (
     setter: (v: UploadState) => void,
