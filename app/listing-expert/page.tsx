@@ -34,25 +34,25 @@ type UploadState = {
 };
 
 export default function ListingExpertPage() {
-  const [marketplace, setMarketplace] = useState<string>(\"\");
-  const [productDesc, setProductDesc] = useState<string>(\"\");
+  const [marketplace, setMarketplace] = useState<string>("");
+  const [productDesc, setProductDesc] = useState<string>("");
   const [keywordBank, setKeywordBank] = useState<UploadState>({
     file: null,
-    label: \"关键词词库 (TXT/CSV)\",
-    accept: \".txt,.csv\",
-    helper: \"支持 TXT/CSV，单文件\",
+    label: "关键词词库 (TXT/CSV)",
+    accept: ".txt,.csv",
+    helper: "支持 TXT/CSV，单文件",
   });
   const [productImage, setProductImage] = useState<UploadState>({
     file: null,
-    label: \"产品图片 (PNG/JPG/WEBP)\",
-    accept: \"image/png,image/jpeg,image/webp\",
-    helper: \"可选，单文件\",
+    label: "产品图片 (PNG/JPG/WEBP)",
+    accept: "image/png,image/jpeg,image/webp",
+    helper: "可选，单文件",
   });
   const [rfa, setRfa] = useState<UploadState>({
     file: null,
-    label: \"Rufus 问答 (TXT/CSV)\",
-    accept: \".txt,.csv\",
-    helper: \"可选，单文件\",
+    label: "Rufus 问答 (TXT/CSV)",
+    accept: ".txt,.csv",
+    helper: "可选，单文件",
   });
   const [loading, setLoading] = useState(false);
   const [resultText, setResultText] = useState<string>(\"\");
