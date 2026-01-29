@@ -1,0 +1,7 @@
+{
+  "name": "Copy of 亚马逊顶级 Listing 专家 (GEO & COSMO 增强版)",
+  "description": "基于亚马逊 A9、COSMO 算法和 Rufus AI 搜索引擎优化的 Listing 文案生成工具。",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
