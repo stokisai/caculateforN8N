@@ -158,7 +158,14 @@ export default function DashboardClient({ services, user }: any) {
         {services.map((service: any) => (
           <div
             key={service.id}
-            onClick={() => setSelectedService(service)}
+            onClick={() => {
+              // Listing Expert 单独跳转新页面
+              if (service.id === "b9f2b13e-2f4b-4a62-8b0e-d2f74d824230") {
+                window.location.href = "/listing-expert";
+                return;
+              }
+              setSelectedService(service);
+            }}
             className="group bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-500 cursor-pointer transition-all"
           >
             <div className="h-40 bg-slate-100 rounded-lg mb-4 overflow-hidden relative">
