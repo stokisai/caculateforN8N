@@ -154,17 +154,17 @@ export default function ListingExpertPage() {
     }
   };
 
-  const renderUpload = (
+  const renderUploadLarge = (
     state: UploadState,
     setter: (v: UploadState) => void,
-    icon: ReactNode,
   ) => (
-    <label className="block border border-slate-200 rounded-xl p-4 hover:border-slate-300 cursor-pointer bg-white">
-      <div className="flex items-center gap-2 text-slate-700 text-sm font-medium">
-        {icon}
-        <span>{state.label}</span>
+    <label className="block border border-dashed border-slate-200 rounded-xl p-6 text-center bg-white hover:border-amber-300 transition">
+      <div className="flex flex-col items-center gap-2 text-slate-600">
+        <Upload className="text-amber-500" size={20} />
+        <span className="text-sm">点击上传 / 拖拽图片</span>
+        <span className="text-xs text-slate-400">PNG、JPG 或 WEBP（建议 1:1）</span>
         {state.file && (
-          <span className="text-emerald-600 text-xs">已选择：{state.file.name}</span>
+          <span className="text-xs text-emerald-600">已选择：{state.file.name}</span>
         )}
       </div>
       <input
@@ -173,93 +173,115 @@ export default function ListingExpertPage() {
         className="hidden"
         onChange={(e) => handleFileChange(setter, state, e.target.files?.[0] || null)}
       />
-      {state.helper && <p className="mt-2 text-xs text-slate-500">{state.helper}</p>}
+    </label>
+  );
+
+  const renderUploadButton = (
+    state: UploadState,
+    setter: (v: UploadState) => void,
+    icon: ReactNode,
+    label: string,
+  ) => (
+    <label className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700 hover:bg-amber-100 cursor-pointer">
+      {icon}
+      <span>{label}</span>
+      <input
+        type="file"
+        accept={state.accept}
+        className="hidden"
+        onChange={(e) => handleFileChange(setter, state, e.target.files?.[0] || null)}
+      />
     </label>
   );
 
   return (
     <div className="min-h-screen bg-slate-50 py-10 px-4">
       <div className="max-w-5xl mx-auto bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">Amazon Listing Expert</h1>
-            <p className="text-sm text-slate-500">高质量 GEO & COSMO 算法支持</p>
-          </div>
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold text-slate-900">Amazon Listing Expert</h1>
+          <p className="text-sm text-slate-500">高质量 GEO & COSMO 算法支持</p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="md:col-span-2">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">第 1 步：上传产品图片</h3>
-            {renderUpload(
-              productImage,
-              setProductImage,
-              <ImageIcon className="text-amber-500" size={18} />,
-            )}
-          </div>
-
-          <div>
-            <h3 className="text-sm font-semibold text-slate-800 mb-2">选择站点（国家）</h3>
-            <div className="border border-slate-200 rounded-xl px-3 py-2 bg-white">
-              <select
-                className="w-full bg-white text-sm text-slate-800 outline-none"
-                value={marketplace}
-                onChange={(e) => setMarketplace(e.target.value)}
-              >
-                <option value="">请选择一个国家</option>
-                {MARKETPLACES.map((m) => (
-                  <option key={m.code} value={m.code}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
+        <div className="space-y-4">
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <ImageIcon className="text-amber-500" size={18} />
+              <span>第一步：上传产品图片</span>
             </div>
+            {renderUploadLarge(productImage, setProductImage)}
+          </section>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <Globe className="text-amber-500" size={18} />
+                <span>选择站点（国家）</span>
+              </div>
+              <div className="border border-slate-200 rounded-xl px-3 py-2 bg-white">
+                <select
+                  className="w-full bg-white text-sm text-slate-800 outline-none"
+                  value={marketplace}
+                  onChange={(e) => setMarketplace(e.target.value)}
+                >
+                  <option value="">请选择一个国家</option>
+                  {MARKETPLACES.map((m) => (
+                    <option key={m.code} value={m.code}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                  <FileUp className="text-amber-500" size={18} />
+                  <span>关键词词库</span>
+                </div>
+                {renderUploadButton(keywordBank, setKeywordBank, <FileUp size={14} />, "上传表格/TXT")}
+              </div>
+              <textarea
+                className="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 h-28 outline-none focus:border-slate-300 bg-white"
+                placeholder="输入核心词、长尾词等（用逗号分隔），或点击右上方按钮上传文件"
+                value={keywordText}
+                onChange={(e) => setKeywordText(e.target.value)}
+              />
+              {keywordBank.file && (
+                <p className="mt-2 text-xs text-emerald-600">已选择：{keywordBank.file.name}</p>
+              )}
+            </section>
           </div>
 
-          <div>
-            <h3 className="text-sm font-semibold text-slate-800 mb-2">关键词词库</h3>
-            {renderUpload(
-              keywordBank,
-              setKeywordBank,
-              <FileUp className="text-amber-500" size={18} />,
-            )}
-          </div>
-
-          <div className="md:col-span-2">
-            <textarea
-              className="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 h-28 outline-none focus:border-slate-300 bg-white"
-              placeholder="输入核心词、长尾词等（用逗号分隔），或点击上方按钮上传文件"
-              value={keywordText}
-              onChange={(e) => setKeywordText(e.target.value)}
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <h3 className="text-sm font-semibold text-slate-800 mb-2">产品信息描述</h3>
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <FileText className="text-amber-500" size={18} />
+              <span>产品信息描述</span>
+            </div>
             <textarea
               className="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 h-28 outline-none focus:border-slate-300 bg-white"
               placeholder="输入卖点、规格、材质、核心功能、用户场景等"
               value={productDesc}
               onChange={(e) => setProductDesc(e.target.value)}
             />
-          </div>
+          </section>
 
-          <div className="md:col-span-2">
-            <h3 className="text-sm font-semibold text-slate-800 mb-2">Rufus 相关问题及答案</h3>
-            {renderUpload(
-              rfa,
-              setRfa,
-              <FileText className="text-amber-500" size={18} />,
-            )}
-          </div>
-
-          <div className="md:col-span-2">
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <FileText className="text-amber-500" size={18} />
+                <span>Rufus 相关问题及答案</span>
+              </div>
+              {renderUploadButton(rfa, setRfa, <FileText size={14} />, "上传表格/TXT")}
+            </div>
             <textarea
               className="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 h-28 outline-none focus:border-slate-300 bg-white"
-              placeholder="Rufus AI 搜索引擎可能问到的问题及其标准答案，或点击上方按钮上传文件"
+              placeholder="Rufus AI 搜索引擎可能问到的问题及其标准答案，或点击右上方按钮上传文件"
               value={rfaText}
               onChange={(e) => setRfaText(e.target.value)}
             />
-          </div>
+            {rfa.file && <p className="mt-2 text-xs text-emerald-600">已选择：{rfa.file.name}</p>}
+          </section>
         </div>
 
         <div className="mt-6 flex items-center justify-between">
