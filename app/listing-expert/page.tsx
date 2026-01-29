@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -16,15 +16,15 @@ const SERVICE_ID = "b9f2b13e-2f4b-4a62-8b0e-d2f74d824230";
 const PROCESS_API = "/api/process";
 
 const MARKETPLACES = [
-  { code: "US", label: "?? (US)" },
-  { code: "UK", label: "?? (UK)" },
-  { code: "DE", label: "?? (DE)" },
-  { code: "FR", label: "?? (FR)" },
-  { code: "IT", label: "??? (IT)" },
-  { code: "ES", label: "??? (ES)" },
-  { code: "JP", label: "?? (JP)" },
-  { code: "CA", label: "??? (CA)" },
-  { code: "AU", label: "???? (AU)" },
+  { code: "US", label: "美国 (US)" },
+  { code: "UK", label: "英国 (UK)" },
+  { code: "DE", label: "德国 (DE)" },
+  { code: "FR", label: "法国 (FR)" },
+  { code: "IT", label: "意大利 (IT)" },
+  { code: "ES", label: "西班牙 (ES)" },
+  { code: "JP", label: "日本 (JP)" },
+  { code: "CA", label: "加拿大 (CA)" },
+  { code: "AU", label: "澳大利亚 (AU)" },
 ];
 
 type UploadState = {
@@ -37,6 +37,7 @@ type UploadState = {
 export default function ListingExpertPage() {
   const [marketplace, setMarketplace] = useState<string>("");
   const [productDesc, setProductDesc] = useState<string>("");
+  const [keywordText, setKeywordText] = useState<string>("");
   const [keywordBank, setKeywordBank] = useState<UploadState>({
     file: null,
     label: "关键词词库 (TXT/CSV)",
@@ -55,7 +56,7 @@ export default function ListingExpertPage() {
     accept: ".txt,.csv",
     helper: "可选，单文件",
   });
-  const [rfaText, setRfaText] = useState("");
+  const [rfaText, setRfaText] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [resultText, setResultText] = useState<string>("");
 
@@ -79,15 +80,16 @@ export default function ListingExpertPage() {
     const parts: string[] = [];
     const selectedMarketplace = MARKETPLACES.find((m) => m.code === marketplace);
     if (selectedMarketplace) {
-      parts.push(`??: ${selectedMarketplace.label}`);
+      parts.push(`站点: ${selectedMarketplace.label}`);
     } else if (marketplace) {
-      parts.push(`??: ${marketplace}`);
+      parts.push(`站点: ${marketplace}`);
     }
-    if (productDesc) parts.push(`????: ${productDesc}`);
-    if (keywordBank.file) parts.push(`??????????: ${keywordBank.file.name}`);
-    if (rfa.file) parts.push(`??? Rufus QA ??: ${rfa.file.name}`);
-    if (rfaText) parts.push(`Rufus ???????: ${rfaText}`);
-    if (productImage.file) parts.push(`???????: ${productImage.file.name}`);
+    if (productDesc) parts.push(`产品信息: ${productDesc}`);
+    if (keywordText) parts.push(`关键词词库: ${keywordText}`);
+    if (keywordBank.file) parts.push(`已上传关键词词库文件: ${keywordBank.file.name}`);
+    if (rfaText) parts.push(`Rufus 相关问题及答案: ${rfaText}`);
+    if (rfa.file) parts.push(`已上传 Rufus QA 文件: ${rfa.file.name}`);
+    if (productImage.file) parts.push(`已上传产品图片: ${productImage.file.name}`);
     return parts.join("\n");
   };
 
@@ -152,12 +154,18 @@ export default function ListingExpertPage() {
     }
   };
 
-  const renderUpload = (state: UploadState, setter: (v: UploadState) => void, icon: ReactNode) => (
+  const renderUpload = (
+    state: UploadState,
+    setter: (v: UploadState) => void,
+    icon: ReactNode,
+  ) => (
     <label className="block border border-slate-200 rounded-xl p-4 hover:border-slate-300 cursor-pointer bg-white">
       <div className="flex items-center gap-2 text-slate-700 text-sm font-medium">
         {icon}
         <span>{state.label}</span>
-        {state.file && <span className="text-emerald-600 text-xs">已选择：{state.file.name}</span>}
+        {state.file && (
+          <span className="text-emerald-600 text-xs">已选择：{state.file.name}</span>
+        )}
       </div>
       <input
         type="file"
@@ -175,14 +183,13 @@ export default function ListingExpertPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">Amazon Listing Expert</h1>
-            <p className="text-sm text-slate-500">World-Class GEO & COSMO Algorithm Support</p>
+            <p className="text-sm text-slate-500">高质量 GEO & COSMO 算法支持</p>
           </div>
-          <div className="text-xs text-slate-400">Powered by Gemini 3.0 Pro</div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3">Step 1. 上传产品图片</h3>
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">第 1 步：上传产品图片</h3>
             {renderUpload(
               productImage,
               setProductImage,
@@ -191,7 +198,7 @@ export default function ListingExpertPage() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-slate-800 mb-2">选择站点 (国家)</h3>
+            <h3 className="text-sm font-semibold text-slate-800 mb-2">选择站点（国家）</h3>
             <div className="border border-slate-200 rounded-xl px-3 py-2 bg-white">
               <select
                 className="w-full bg-white text-sm text-slate-800 outline-none"
@@ -218,6 +225,15 @@ export default function ListingExpertPage() {
           </div>
 
           <div className="md:col-span-2">
+            <textarea
+              className="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 h-28 outline-none focus:border-slate-300 bg-white"
+              placeholder="输入核心词、长尾词等（用逗号分隔），或点击上方按钮上传文件"
+              value={keywordText}
+              onChange={(e) => setKeywordText(e.target.value)}
+            />
+          </div>
+
+          <div className="md:col-span-2">
             <h3 className="text-sm font-semibold text-slate-800 mb-2">产品信息描述</h3>
             <textarea
               className="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 h-28 outline-none focus:border-slate-300 bg-white"
@@ -239,14 +255,19 @@ export default function ListingExpertPage() {
           <div className="md:col-span-2">
             <textarea
               className="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 h-28 outline-none focus:border-slate-300 bg-white"
-              placeholder="Rufus AI ?????????????????????????????"
+              placeholder="Rufus AI 搜索引擎可能问到的问题及其标准答案，或点击上方按钮上传文件"
               value={rfaText}
               onChange={(e) => setRfaText(e.target.value)}
             />
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex items-center justify-between">
+          <div className="text-sm text-slate-600">
+            {(loading || resultText) && (
+              <span>状态：{loading ? "处理中..." : "已完成"}</span>
+            )}
+          </div>
           <button
             onClick={handleSubmit}
             disabled={loading}
