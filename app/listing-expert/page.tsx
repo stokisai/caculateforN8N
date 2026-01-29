@@ -92,18 +92,18 @@ export default function ListingExpertPage() {
 
       if (primaryFile) {
         const formData = new FormData();
-        formData.append(\"data\", primaryFile);
-        formData.append(\"service_id\", SERVICE_ID);
-        formData.append(\"input_text\", buildInputText());
-        response = await fetch(\"/api/n8n\", {
-          method: \"POST\",
+        formData.append("data", primaryFile);
+        formData.append("service_id", SERVICE_ID);
+        formData.append("input_text", buildInputText());
+        response = await fetch("/api/n8n", {
+          method: "POST",
           body: formData,
-          headers: { \"X-Webhook-URL\": WEBHOOK_URL },
+          headers: { "X-Webhook-URL": WEBHOOK_URL },
         });
       } else {
-        response = await fetch(\"/api/n8n\", {
-          method: \"POST\",
-          headers: { \"Content-Type\": \"application/json\" },
+        response = await fetch("/api/n8n", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             webhook_url: WEBHOOK_URL,
             service_id: SERVICE_ID,
@@ -114,17 +114,17 @@ export default function ListingExpertPage() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || \"提交失败\");
+        throw new Error(errorText || "提交失败");
       }
 
       const contentType = response.headers.get(\"content-type\") || \"\";
-      if (contentType && !contentType.includes(\"application/json\")) {
+      if (contentType && !contentType.includes("application/json")) {
         // 文件返回：触发下载
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement(\"a\");
         a.href = url;
-        const contentDisposition = response.headers.get(\"content-disposition\");
+        const contentDisposition = response.headers.get("content-disposition");
         let fileName = `result_${Date.now()}.xlsx`;
         if (contentDisposition) {
           const match = contentDisposition.match(/filename=\"?(.+?)\"?$/);
@@ -143,11 +143,11 @@ export default function ListingExpertPage() {
           data.message ||
           data.output ||
           data.text ||
-          (typeof data === \"string\" ? data : JSON.stringify(data, null, 2));
+          (typeof data === "string" ? data : JSON.stringify(data, null, 2));
         setResultText(textToShow);
       }
     } catch (err: any) {
-      setResultText(err?.message || \"提交失败\");
+      setResultText(err?.message || "提交失败");
     } finally {
       setLoading(false);
     }
