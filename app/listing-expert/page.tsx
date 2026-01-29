@@ -11,19 +11,19 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-const SERVICE_ID = \"b9f2b13e-2f4b-4a62-8b0e-d2f74d824230\";
-const WEBHOOK_URL = \"https://caculateforn8n-production.up.railway.app/process\";
+const SERVICE_ID = "b9f2b13e-2f4b-4a62-8b0e-d2f74d824230";
+const WEBHOOK_URL = "https://caculateforn8n-production.up.railway.app/process";
 
 const MARKETPLACES = [
-  \"US\",
-  \"UK\",
-  \"DE\",
-  \"FR\",
-  \"IT\",
-  \"ES\",
-  \"JP\",
-  \"CA\",
-  \"AU\",
+  "US",
+  "UK",
+  "DE",
+  "FR",
+  "IT",
+  "ES",
+  "JP",
+  "CA",
+  "AU",
 ];
 
 type UploadState = {
