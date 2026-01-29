@@ -38,8 +38,7 @@ export default async function DashboardPage() {
           title: "亚马逊顶级 Listing 专家 (GEO & COSMO 增强版)",
           description:
             "AI 生成高转化 Amazon Listing 文案，提交产品要点/需求即可获得示例草稿。",
-          image_url:
-            "https://images.unsplash.com/photo-1522198734915-76c764a8454b?auto=format&fit=crop&w=1200&q=80",
+          image_url: "/images/listing-expert.svg",
           webhook_url: "https://caculateforn8n-production.up.railway.app/process",
           input_type: "text",
           created_at: new Date().toISOString(),

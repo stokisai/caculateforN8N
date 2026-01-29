@@ -251,9 +251,21 @@ export default function DashboardClient({ services, user }: any) {
           >
             <div className="h-40 bg-slate-100 rounded-lg mb-4 overflow-hidden relative">
               {service.image_url ? (
-                <img src={service.image_url} alt={service.title} className="w-full h-full object-cover" />
+                <img
+                  src={service.image_url}
+                  alt={service.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget as HTMLImageElement;
+                    if (!target.src.includes("/images/service-fallback.svg")) {
+                      target.src = "/images/service-fallback.svg";
+                    }
+                  }}
+                />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-slate-400">No Image</div>
+                <div className="w-full h-full flex items-center justify-center text-slate-400">
+                  <img src="/images/service-fallback.svg" alt="Service" className="w-20 h-20 opacity-70" />
+                </div>
               )}
             </div>
             <h3 className="text-xl font-semibold text-slate-900 mb-2">{service.title}</h3>
