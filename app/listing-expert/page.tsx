@@ -117,7 +117,7 @@ export default function ListingExpertPage() {
         throw new Error(errorText || "提交失败");
       }
 
-      const contentType = response.headers.get(\"content-type\") || \"\";
+      const contentType = response.headers.get("content-type") || "";
       if (contentType && !contentType.includes("application/json")) {
         // 文件返回：触发下载
         const blob = await response.blob();
@@ -135,7 +135,7 @@ export default function ListingExpertPage() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        setResultText(\"文件已下载\");
+        setResultText("文件已下载");
       } else {
         const data = await response.json();
         const textToShow =
