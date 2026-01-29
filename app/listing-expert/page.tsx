@@ -16,15 +16,15 @@ const SERVICE_ID = "b9f2b13e-2f4b-4a62-8b0e-d2f74d824230";
 const PROCESS_API = "/api/process";
 
 const MARKETPLACES = [
-  "US",
-  "UK",
-  "DE",
-  "FR",
-  "IT",
-  "ES",
-  "JP",
-  "CA",
-  "AU",
+  { code: "US", label: "?? (US)" },
+  { code: "UK", label: "?? (UK)" },
+  { code: "DE", label: "?? (DE)" },
+  { code: "FR", label: "?? (FR)" },
+  { code: "IT", label: "??? (IT)" },
+  { code: "ES", label: "??? (ES)" },
+  { code: "JP", label: "?? (JP)" },
+  { code: "CA", label: "??? (CA)" },
+  { code: "AU", label: "???? (AU)" },
 ];
 
 type UploadState = {
@@ -55,6 +55,7 @@ export default function ListingExpertPage() {
     accept: ".txt,.csv",
     helper: "可选，单文件",
   });
+  const [rfaText, setRfaText] = useState("");
   const [loading, setLoading] = useState(false);
   const [resultText, setResultText] = useState<string>("");
 
@@ -76,11 +77,17 @@ export default function ListingExpertPage() {
 
   const buildInputText = () => {
     const parts: string[] = [];
-    if (marketplace) parts.push(`站点: ${marketplace}`);
-    if (productDesc) parts.push(`产品信息: ${productDesc}`);
-    if (keywordBank.file) parts.push(`已上传关键词词库文件: ${keywordBank.file.name}`);
-    if (rfa.file) parts.push(`已上传 Rufus QA 文件: ${rfa.file.name}`);
-    if (productImage.file) parts.push(`已上传产品图片: ${productImage.file.name}`);
+    const selectedMarketplace = MARKETPLACES.find((m) => m.code === marketplace);
+    if (selectedMarketplace) {
+      parts.push(`??: ${selectedMarketplace.label}`);
+    } else if (marketplace) {
+      parts.push(`??: ${marketplace}`);
+    }
+    if (productDesc) parts.push(`????: ${productDesc}`);
+    if (keywordBank.file) parts.push(`??????????: ${keywordBank.file.name}`);
+    if (rfa.file) parts.push(`??? Rufus QA ??: ${rfa.file.name}`);
+    if (rfaText) parts.push(`Rufus ???????: ${rfaText}`);
+    if (productImage.file) parts.push(`???????: ${productImage.file.name}`);
     return parts.join("\n");
   };
 
@@ -193,8 +200,8 @@ export default function ListingExpertPage() {
               >
                 <option value="">请选择一个国家</option>
                 {MARKETPLACES.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
+                  <option key={m.code} value={m.code}>
+                    {m.label}
                   </option>
                 ))}
               </select>
@@ -227,6 +234,15 @@ export default function ListingExpertPage() {
               setRfa,
               <FileText className="text-amber-500" size={18} />,
             )}
+          </div>
+
+          <div className="md:col-span-2">
+            <textarea
+              className="w-full border border-slate-200 rounded-xl p-3 text-sm text-slate-800 h-28 outline-none focus:border-slate-300 bg-white"
+              placeholder="Rufus AI ?????????????????????????????"
+              value={rfaText}
+              onChange={(e) => setRfaText(e.target.value)}
+            />
           </div>
         </div>
 
