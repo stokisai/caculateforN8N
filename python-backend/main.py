@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 import pandas as pd
 import io
 import zipfile
@@ -156,6 +156,48 @@ async def process_excel(
         return JSONResponse({
             "message": f"任务已创建，Job ID: {job_id}。请使用 GET /api/jobs/{job_id} 查询进度。",
             "job_id": job_id
+        })
+
+    # Check if this service should be async (e.g., Ex大名 which is slow)
+    async_service_ids = [
+        "abfaf85c-9553-4d7b-9416-e3aff65e8587", # 产品评论数低于50占比
+        "d144da99-d3e6-4b78-9cd5-70b1e4ced346", # 筛选核心关键词
+        "65bb6f50-5087-488e-8f1b-350d4ed9fe00"  # 计算投产比
+    ]
+    if service_id in async_service_ids:
+        if not file:
+            raise HTTPException(status_code=400, detail="此服务需要上传文件")
+            
+        job_id = str(uuid.uuid4())
+        # Save input file to outputs directory
+        os.makedirs("outputs", exist_ok=True)
+        ext = os.path.splitext(file.filename)[1].lower() if file.filename else ".xlsx"
+        input_path = f"outputs/{job_id}_input{ext}"
+        
+        try:
+            with open(input_path, "wb") as f:
+                content = await file.read()
+                f.write(content)
+        except Exception as e:
+            print(f"❌ 无法保存上传的文件: {e}")
+            raise HTTPException(status_code=500, detail="保存上传文件失败")
+            
+        job_storage[job_id] = {
+            "status": "queued",
+            "service_id": service_id,
+            "keyword": input_text if input_text else "Excel Process",
+            "filename": file.filename,
+            "progress": 0.0,
+            "created_at": datetime.now().isoformat(),
+            "artifacts": {}
+        }
+        # Start background task
+        asyncio.create_task(execute_excel_job(job_id, input_path, service_id, input_text))
+        
+        return JSONResponse({
+            "message": "已成功提交任务，正在后台处理。请稍后查看结果。",
+            "job_id": job_id,
+            "status": "queued"
         })
 
     # 新增：亚马逊顶级 Listing 专家 (GEO & COSMO 增强版) 文本服务（仅文本输入，不需要文件）
@@ -1020,6 +1062,72 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "supabase_connected": supabase is not None}
+
+
+async def execute_excel_job(job_id: str, input_path: str, service_id: str, input_text: Optional[str]):
+    """
+    后台执行 Excel 处理任务
+    """
+    try:
+        job_storage[job_id]["status"] = "running"
+        job_storage[job_id]["progress"] = 0.1
+        
+        print(f"🚀 开始后台处理 Excel 任务: {job_id}, Service ID: {service_id}")
+        
+        # 1. 读取文件
+        df = pd.read_excel(input_path)
+        job_storage[job_id]["progress"] = 0.2
+        
+        # 2. 调用处理逻辑
+        # Note: process_dataframe is sync but we're in a background task
+        result = process_dataframe(df, service_id, input_text)
+        job_storage[job_id]["progress"] = 0.8
+        
+        # 3. 处理结果
+        if isinstance(result, str):
+            # 文本报告
+            result_path = f"outputs/{job_id}_result.txt"
+            with open(result_path, "w", encoding="utf-8") as f:
+                f.write(result)
+            job_storage[job_id]["artifacts"]["result_path"] = result_path
+            job_storage[job_id]["artifacts"]["result_filename"] = f"report_{job_id}.txt"
+        else:
+            # Excel DataFrame
+            result_path = f"outputs/{job_id}_result.xlsx"
+            result.to_excel(result_path, index=False)
+            job_storage[job_id]["artifacts"]["result_path"] = result_path
+            job_storage[job_id]["artifacts"]["result_filename"] = f"processed_{job_id}.xlsx"
+            
+        job_storage[job_id]["status"] = "done"
+        job_storage[job_id]["progress"] = 1.0
+        print(f"✅ Excel 任务处理完成: {job_id}")
+        
+    except Exception as e:
+        job_storage[job_id]["status"] = "failed"
+        job_storage[job_id]["error"] = str(e)
+        print(f"❌ Excel 任务处理失败: {job_id}, 错误: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+@app.get("/api/jobs/{job_id}/result")
+async def download_job_result(job_id: str):
+    """
+    下载 Excel 任务的处理结果
+    """
+    if job_id not in job_storage:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    
+    job = job_storage[job_id]
+    if job["status"] != "done":
+        raise HTTPException(status_code=400, detail=f"任务尚未完成，当前状态: {job['status']}")
+    
+    result_path = job["artifacts"].get("result_path")
+    if not result_path or not os.path.exists(result_path):
+        raise HTTPException(status_code=404, detail="处理结果文件不存在")
+    
+    filename = job["artifacts"].get("result_filename", "result.xlsx")
+    return FileResponse(result_path, filename=filename)
 
 
 # ============================================

@@ -10,6 +10,7 @@ import {
   FileUp,
   Loader2,
   CheckCircle,
+  ArrowLeft,
 } from "lucide-react";
 
 const SERVICE_ID = "b9f2b13e-2f4b-4a62-8b0e-d2f74d824230";
@@ -198,6 +199,14 @@ export default function ListingExpertPage() {
     <div className="min-h-screen bg-slate-50 py-10 px-4">
       <div className="max-w-5xl mx-auto bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
         <div className="mb-6">
+          <div className="mb-3">
+            <a
+              href="/dashboard"
+              className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+            >
+              <ArrowLeft size={16} /> 返回主页
+            </a>
+          </div>
           <h1 className="text-xl font-semibold text-slate-900">Amazon Listing Expert</h1>
           <p className="text-sm text-slate-500">高质量 GEO & COSMO 算法支持</p>
         </div>

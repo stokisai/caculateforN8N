@@ -13,6 +13,11 @@ export default function DashboardClient({ services, user }: any) {
   // 新增：用来存储 FastAPI 返回的文字内容
   const [resultContent, setResultContent] = useState("");
 
+  // 新增：异步任务处理状态
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [taskProgress, setTaskProgress] = useState(0);
+  const [taskStatus, setTaskStatus] = useState("idle");
+
   // 使用集中式 Supabase 客户端
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
@@ -27,15 +32,95 @@ export default function DashboardClient({ services, user }: any) {
     setSelectedService(null);
     setFile(null);
     setInputText("");
+    setTaskId(null);
+    setTaskProgress(0);
+    setTaskStatus("idle");
+  };
+
+  // 轮询任务状态
+  const pollTaskStatus = async (jobId: string, baseUrl: string) => {
+    setTaskStatus("running");
+
+    const poll = async () => {
+      try {
+        const response = await fetch(`${baseUrl}/api/jobs/${jobId}`);
+        if (!response.ok) throw new Error("Failed to fetch task status");
+
+        const data = await response.json();
+        setTaskProgress(Math.round((data.progress || 0) * 100));
+        setTaskStatus(data.status);
+
+        if (data.status === "done") {
+          // 任务完成
+          if (data.artifacts && data.artifacts.result_path) {
+            // 是 Excel/文件处理任务
+            handleDownloadResult(jobId, baseUrl);
+            setSuccess(true);
+            setLoading(false);
+          } else if (data.artifacts && data.artifacts.report_url) {
+            // 是社媒选品法任务（原来逻辑）
+            setSuccess(true);
+            setLoading(false);
+          } else {
+            // 可能只有消息
+            setResultContent(data.message || "处理完成");
+            setSuccess(true);
+            setLoading(false);
+          }
+        } else if (data.status === "failed") {
+          throw new Error(data.error || "后端任务执行失败");
+        } else {
+          // 继续轮询
+          setTimeout(poll, 2000);
+        }
+      } catch (error: any) {
+        console.error("Polling error:", error);
+        alert(`任务处理出错: ${error.message}`);
+        setLoading(false);
+        setTaskStatus("failed");
+      }
+    };
+
+    poll();
+  };
+
+  // 下载异步处理结果
+  const handleDownloadResult = async (jobId: string, baseUrl: string) => {
+    try {
+      const response = await fetch(`${baseUrl}/api/jobs/${jobId}/result`);
+      if (!response.ok) throw new Error("下载结果失败");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+
+      const contentDisposition = response.headers.get("content-disposition");
+      let fileName = `processed_${jobId}.xlsx`;
+      if (contentDisposition) {
+        const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (fileNameMatch && fileNameMatch.length === 2) fileName = fileNameMatch[1];
+      }
+
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Download error:", error);
+    }
   };
 
   const handleSubmit = async () => {
     if (!selectedService) return;
     setLoading(true);
     setResultContent(""); // 清空旧结果
+    setTaskStatus("starting");
+    setTaskProgress(0);
 
     try {
-      // 1. ???? FastAPI /process
+      // 1. 调用 FastAPI /process
       const webhookUrl = selectedService.webhook_url || "";
       if (!webhookUrl) {
         throw new Error("Missing service webhook_url");
@@ -62,50 +147,59 @@ export default function DashboardClient({ services, user }: any) {
         throw new Error(`Processing failed: ${errorText}`);
       }
 
-      // === 核心逻辑：判断是文件还是文字 ===
+      // === 核心逻辑：判断是异步任务 ID 还是直接结果 ===
       const contentType = response.headers.get("content-type");
 
-      if (contentType && !contentType.includes("application/json")) {
+      if (contentType && contentType.includes("application/json")) {
+        const data = await response.json();
+
+        if (data.job_id) {
+          // [情况 C] 异步任务：开始轮询
+          setTaskId(data.job_id);
+          const baseUrl = new URL(webhookUrl).origin;
+          pollTaskStatus(data.job_id, baseUrl);
+          return; // pollTaskStatus 会处理后续 setLoading(false)
+        }
+
+        // [情况 B] 是文字 (JSON)：解析并展示
+        const textToShow =
+          data.result ||
+          data.message ||
+          data.output ||
+          data.text ||
+          (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+
+        setResultContent(textToShow);
+        setSuccess(true);
+      } else {
         // [情况 A] 是文件：触发下载
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        // 尝试从 header 获取文件名，如果没有则用默认的
         const contentDisposition = response.headers.get("content-disposition");
         let fileName = `result_${Date.now()}.xlsx`;
         if (contentDisposition) {
-            const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
-            if (fileNameMatch && fileNameMatch.length === 2) fileName = fileNameMatch[1];
+          const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
+          if (fileNameMatch && fileNameMatch.length === 2) fileName = fileNameMatch[1];
         }
         a.download = fileName;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        
-        setSuccess(true); // 显示简单的成功提示
-      } else {
-        // [情况 B] 是文字 (JSON)：解析并展示
-        const data = await response.json();
-        
-        // 智能提取：尝试找到看起来像结果的字段
-        const textToShow = 
-            data.result || 
-            data.message || 
-            data.output || 
-            data.text ||
-            (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
-        
-        setResultContent(textToShow);
-        setSuccess(true); // 显示带文字的成功提示
+
+        setSuccess(true);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error:", error);
-      alert("提交失败，请重试");
+      alert(error.message || "提交失败，请重试");
     } finally {
-      setLoading(false);
+      // 如果不是异步任务，则在这里关闭 loading
+      if (taskStatus !== "running") {
+        setLoading(false);
+      }
     }
   };
 
@@ -222,13 +316,28 @@ export default function DashboardClient({ services, user }: any) {
                     </div>
                   )}
 
+                  {loading && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-slate-500">
+                        <span>{taskStatus === "running" ? "正在后台处理" : "准备执行..."}</span>
+                        <span>{taskProgress}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="bg-indigo-600 h-1.5 rounded-full transition-all duration-500"
+                          style={{ width: `${taskProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     onClick={handleSubmit}
                     disabled={loading || ((selectedService.input_type === "file" && !file) || (selectedService.input_type === "text" && !inputText))}
                     className="w-full bg-slate-900 text-white py-3 rounded-lg font-medium hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 transition-colors"
                   >
                     {loading && <Loader2 className="animate-spin" size={18} />}
-                    {loading ? "处理中..." : "提交任务"}
+                    {loading ? (taskStatus === "running" ? "处理中..." : "启动中...") : "提交任务"}
                   </button>
                 </div>
               </>
@@ -239,7 +348,7 @@ export default function DashboardClient({ services, user }: any) {
                   <CheckCircle className="text-green-600" size={32} />
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-2">处理完成！</h3>
-                
+
                 {resultContent ? (
                   // 如果有文字结果，显示文本框
                   <div className="mt-4 text-left">
@@ -249,7 +358,7 @@ export default function DashboardClient({ services, user }: any) {
                         {resultContent}
                       </pre>
                     </div>
-                    <button 
+                    <button
                       onClick={() => {
                         navigator.clipboard.writeText(resultContent);
                         alert("已复制到剪贴板");
