@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import {
   Upload,
   Globe,
@@ -144,7 +145,7 @@ export default function ListingExpertPage() {
     }
   };
 
-  const renderUpload = (state: UploadState, setter: (v: UploadState) => void, icon: JSX.Element) => (
+  const renderUpload = (state: UploadState, setter: (v: UploadState) => void, icon: ReactNode) => (
     <label className="block border border-slate-200 rounded-xl p-4 hover:border-slate-300 cursor-pointer bg-white">
       <div className="flex items-center gap-2 text-slate-700 text-sm font-medium">
         {icon}
