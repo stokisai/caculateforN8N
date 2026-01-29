@@ -1,6 +1,6 @@
 ## Service Catalog SaaS
 
-Next.js 14 + Supabase + Tailwind app for browsing AI services, submitting tasks, and triggering n8n webhooks.
+Next.js 14 + Supabase + Tailwind app for browsing AI services, submitting tasks, and calling FastAPI services.
 
 ### Setup
 1) Create a Supabase project and add env vars in `.env.local`:

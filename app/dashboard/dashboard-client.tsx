@@ -10,7 +10,7 @@ export default function DashboardClient({ services, user }: any) {
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  // 新增：用来存储 n8n 返回的文字内容
+  // 新增：用来存储 FastAPI 返回的文字内容
   const [resultContent, setResultContent] = useState("");
 
   // 使用集中式 Supabase 客户端
@@ -35,40 +35,27 @@ export default function DashboardClient({ services, user }: any) {
     setResultContent(""); // 清空旧结果
 
     try {
-      // 1. 如果有文件，直接上传到 webhook（multipart/form-data），同时传递 service_id / input_text
-      let response: Response;
+      // 1. ???? FastAPI /process
       const webhookUrl = selectedService.webhook_url || "";
-      
-      if (file) {
-        // 使用 FormData 直接上传文件
-        const formData = new FormData();
-        formData.append("data", file);
-        if (selectedService?.id) {
-          formData.append("service_id", selectedService.id);
-        }
-        if (inputText) {
-          formData.append("input_text", inputText);
-        }
-
-        response = await fetch("/api/n8n", {
-          method: "POST",
-          body: formData,
-          headers: {
-            "X-Webhook-URL": webhookUrl,
-          },
-        });
-      } else {
-        // 没有文件时，发送 JSON，同时传递 service_id
-        response = await fetch("/api/n8n", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            webhook_url: webhookUrl,
-            input_text: inputText,
-            service_id: selectedService?.id,
-          }),
-        });
+      if (!webhookUrl) {
+        throw new Error("Missing service webhook_url");
       }
+
+      const formData = new FormData();
+      if (file) {
+        formData.append("file", file);
+      }
+      if (selectedService?.id) {
+        formData.append("service_id", selectedService.id);
+      }
+      if (inputText) {
+        formData.append("input_text", inputText);
+      }
+
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        body: formData,
+      });
 
       if (!response.ok) {
         const errorText = await response.text();

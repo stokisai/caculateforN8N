@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Service Catalog | AI Agents",
   description:
-    "Browse AI services, submit tasks, and trigger n8n workflows.",
+    "Browse AI services, submit tasks, and run FastAPI services.",
 };
 
 export default function RootLayout({
