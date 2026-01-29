@@ -35,29 +35,37 @@ export default function DashboardClient({ services, user }: any) {
     setResultContent(""); // 清空旧结果
 
     try {
-      // 1. 如果有文件，直接上传到 n8n webhook（multipart/form-data）
+      // 1. 如果有文件，直接上传到 webhook（multipart/form-data），同时传递 service_id / input_text
       let response: Response;
+      const webhookUrl = selectedService.webhook_url || "";
       
       if (file) {
         // 使用 FormData 直接上传文件
         const formData = new FormData();
         formData.append("data", file);
+        if (selectedService?.id) {
+          formData.append("service_id", selectedService.id);
+        }
+        if (inputText) {
+          formData.append("input_text", inputText);
+        }
 
         response = await fetch("/api/n8n", {
           method: "POST",
           body: formData,
           headers: {
-            "X-Webhook-URL": selectedService.webhook_url || "",
+            "X-Webhook-URL": webhookUrl,
           },
         });
       } else {
-        // 没有文件时，发送 JSON
+        // 没有文件时，发送 JSON，同时传递 service_id
         response = await fetch("/api/n8n", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            webhook_url: selectedService.webhook_url,
+            webhook_url: webhookUrl,
             input_text: inputText,
+            service_id: selectedService?.id,
           }),
         });
       }
