@@ -62,6 +62,102 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 SERP_API_URL = "https://serpapi.com/search"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 REFERENCE_IMAGE_URL = "https://m.media-amazon.com/images/I/61HVDJy8R4L._SL1500_.jpg"
+KB_DIR = os.getenv("KB_DIR", os.path.join(os.path.dirname(__file__), "knowledge"))
+
+
+def load_kb_chunks() -> List[Dict[str, str]]:
+    """Load PDF knowledge base and chunk into short passages."""
+    chunks: List[Dict[str, str]] = []
+    if not os.path.isdir(KB_DIR):
+        return chunks
+
+    try:
+        from pypdf import PdfReader
+    except Exception as e:
+        print(f"?? ??? pypdf????????: {e}")
+        return chunks
+
+    for filename in os.listdir(KB_DIR):
+        if not filename.lower().endswith(".pdf"):
+            continue
+        file_path = os.path.join(KB_DIR, filename)
+        try:
+            reader = PdfReader(file_path)
+            pages_text = []
+            for page in reader.pages:
+                page_text = page.extract_text() or ""
+                pages_text.append(page_text)
+            full_text = "
+".join(pages_text)
+            full_text = re.sub(r"\s+", " ", full_text).strip()
+            if not full_text:
+                continue
+
+            chunk_size = 1200
+            overlap = 200
+            step = max(chunk_size - overlap, 400)
+            for i in range(0, len(full_text), step):
+                chunk = full_text[i:i + chunk_size].strip()
+                if len(chunk) < 200:
+                    continue
+                chunks.append({"source": filename, "text": chunk})
+        except Exception as e:
+            print(f"?? ?????????: {filename}, {e}")
+            continue
+
+    return chunks
+
+
+def tokenize_query(text: str) -> List[str]:
+    lower = text.lower()
+    words = [w for w in re.findall(r"[a-z0-9]+", lower) if len(w) >= 3]
+    cjk_seqs = re.findall(r"[一-鿿]+", text)
+    cjk_bigrams = []
+    for seq in cjk_seqs:
+        if len(seq) == 1:
+            cjk_bigrams.append(seq)
+        else:
+            cjk_bigrams.extend(seq[i:i+2] for i in range(len(seq) - 1))
+    return list(dict.fromkeys(words + cjk_bigrams))
+
+
+def get_kb_context(query: str, top_k: int = 3, max_chars: int = 2500) -> str:
+    if not query or not query.strip():
+        return ""
+    tokens = tokenize_query(query)
+    if not tokens:
+        return ""
+
+    scored = []
+    for item in KB_CHUNKS:
+        text_chunk = item["text"]
+        text_lower = text_chunk.lower()
+        score = 0
+        for tok in tokens:
+            if tok.isascii():
+                if tok in text_lower:
+                    score += 1
+            else:
+                if tok in text_chunk:
+                    score += 1
+        if score > 0:
+            scored.append((score, item))
+
+    if not scored:
+        return ""
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    selected = [s[1] for s in scored[:top_k]]
+    lines = []
+    for item in selected:
+        lines.append(f"?{item['source']}?{item['text']}")
+    context = "
+".join(lines)
+    return context[:max_chars]
+
+
+KB_CHUNKS = load_kb_chunks()
+
 GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "google/gemini-3-pro-preview")
 GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "google/gemini-3-pro-image-preview")
 
@@ -249,10 +345,15 @@ async def process_excel(
             genai.configure(api_key=GEMINI_API_KEY)
             model = genai.GenerativeModel(normalize_gemini_model(GEMINI_TEXT_MODEL))
 
+            kb_context = get_kb_context(input_text)
+
             prompt = f"""???? 10 ??????? Listing ?????? COSMO ?????GEO?Generative Engine Optimization?? Amazon A9 ???????? Listing ?????
 
 ?????
 {input_text}
+
+??????
+{kb_context or '???'}
 
 ???????
 - ????????
