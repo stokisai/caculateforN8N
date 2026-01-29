@@ -85,7 +85,7 @@ export default function ListingExpertPage() {
 
   const handleSubmit = async () => {
     setLoading(true);
-    setResultText(\"\");
+    setResultText("");
     try {
       const primaryFile = pickPrimaryFile();
       let response: Response;
