@@ -28,22 +28,39 @@ export default async function DashboardPage() {
 
   // 确保“亚马逊顶级 Listing 专家”服务存在（若 Supabase 缺这条记录则插入一个前端兜底）
   const listingServiceId = "b9f2b13e-2f4b-4a62-8b0e-d2f74d824230";
+  const appListingServiceId = "d2e62616-44ff-4623-90e2-33ce28d0b9ba";
   const hasListingService = typedServices.some((s) => s.id === listingServiceId);
-  const mergedServices = hasListingService
-    ? typedServices
-    : [
-        ...typedServices,
-        {
-          id: listingServiceId,
-          title: "亚马逊顶级 Listing 专家 (GEO & COSMO 增强版)",
-          description:
-            "AI 生成高转化 Amazon Listing 文案，提交产品要点/需求即可获得示例草稿。",
-          image_url: "/images/listing-expert.svg",
-          webhook_url: "https://caculateforn8n-production.up.railway.app/process",
-          input_type: "text",
-          created_at: new Date().toISOString(),
-        } as Service,
-      ];
+  const hasAppListingService = typedServices.some((s) => s.id === appListingServiceId);
+  const mergedServices = [
+    ...typedServices,
+    ...(!hasListingService
+      ? [
+          {
+            id: listingServiceId,
+            title: "????????Listing ??? (GEO & COSMO ?????",
+            description:
+              "AI ????????Amazon Listing ????????????????????????????????",
+            image_url: "/images/listing-expert.svg",
+            webhook_url: "/api/process",
+            input_type: "text",
+            created_at: new Date().toISOString(),
+          } as Service,
+        ]
+      : []),
+    ...(!hasAppListingService
+      ? [
+          {
+            id: appListingServiceId,
+            title: "APP????????listing????",
+            description: "???????????????????????????APP?????",
+            image_url: "/images/app-listing.svg",
+            webhook_url: "/app-listing",
+            input_type: "text",
+            created_at: new Date().toISOString(),
+          } as Service,
+        ]
+      : []),
+  ];
 
   // 调试日志
   console.log(

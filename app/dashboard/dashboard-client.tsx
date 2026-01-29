@@ -245,6 +245,10 @@ export default function DashboardClient({ services, user }: any) {
                 window.location.href = "/listing-expert";
                 return;
               }
+              if (service.id === "d2e62616-44ff-4623-90e2-33ce28d0b9ba") {
+                window.location.href = "/app-listing";
+                return;
+              }
               setSelectedService(service);
             }}
             className="group bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-500 cursor-pointer transition-all"

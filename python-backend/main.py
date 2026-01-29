@@ -87,8 +87,7 @@ def load_kb_chunks() -> List[Dict[str, str]]:
             for page in reader.pages:
                 page_text = page.extract_text() or ""
                 pages_text.append(page_text)
-            full_text = "
-".join(pages_text)
+            full_text = "\n".join(pages_text)
             full_text = re.sub(r"\s+", " ", full_text).strip()
             if not full_text:
                 continue
@@ -111,7 +110,7 @@ def load_kb_chunks() -> List[Dict[str, str]]:
 def tokenize_query(text: str) -> List[str]:
     lower = text.lower()
     words = [w for w in re.findall(r"[a-z0-9]+", lower) if len(w) >= 3]
-    cjk_seqs = re.findall(r"[一-鿿]+", text)
+    cjk_seqs = re.findall(r"[\u4e00-\u9fff]+", text)
     cjk_bigrams = []
     for seq in cjk_seqs:
         if len(seq) == 1:
@@ -151,8 +150,7 @@ def get_kb_context(query: str, top_k: int = 3, max_chars: int = 2500) -> str:
     lines = []
     for item in selected:
         lines.append(f"?{item['source']}?{item['text']}")
-    context = "
-".join(lines)
+    context = "\n".join(lines)
     return context[:max_chars]
 
 
