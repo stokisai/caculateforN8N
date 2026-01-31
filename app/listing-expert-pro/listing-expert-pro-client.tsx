@@ -20,7 +20,7 @@ export default function ListingExpertProClient() {
     keywords: '',
     marketplace: 'US',
     rufusQA: '',
-    model: 'gemini-2.5-pro-preview-05-06'
+    model: 'gemini-3-pro-preview'
   });
   const [listingContent, setListingContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);

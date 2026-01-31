@@ -54,14 +54,14 @@ export const MARKETPLACES = [
 
 export const MODELS = [
   {
-    id: 'gemini-2.5-pro-preview-05-06',
-    name: 'Gemini 2.5 Pro',
+    id: 'gemini-3-pro-preview',
+    name: 'Gemini 3 Pro',
     desc: '深度推理，适合高质量复杂文案',
     recommended: true
   },
   {
-    id: 'gemini-2.5-flash-preview-05-20',
-    name: 'Gemini 2.5 Flash',
+    id: 'gemini-3-flash-preview',
+    name: 'Gemini 3 Flash',
     desc: '响应极速，适合批量基础生成',
     recommended: false
   }
