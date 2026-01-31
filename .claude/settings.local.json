@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell:*)",
+      "Bash(copy:*)",
+      "Bash(git -C \"c:/Users/ASUS/Desktop/n8n-saas-curspr\" status)",
+      "Bash(git -C \"c:/Users/ASUS/Desktop/n8n-saas-curspr\" diff --stat)",
+      "Bash(git -C \"c:/Users/ASUS/Desktop/n8n-saas-curspr\" log --oneline -3)",
+      "Bash(git -C \"c:/Users/ASUS/Desktop/n8n-saas-curspr\" add app/listing-expert-pro/ app/dashboard/dashboard-client.tsx python-backend/main.py python-backend/knowledge/)",
+      "Bash(git -C \"c:/Users/ASUS/Desktop/n8n-saas-curspr\" add -f python-backend/knowledge/*.pdf)",
+      "Bash(git -C \"c:/Users/ASUS/Desktop/n8n-saas-curspr\" ls-files python-backend/knowledge/)",
+      "Bash(git -C \"c:/Users/ASUS/Desktop/n8n-saas-curspr\" commit -m \"$\\(cat <<''EOF''\nfeat\\(service\\): 添加 Amazon Listing Expert Pro 工具\n\n- 新增 /listing-expert-pro 前端页面\n- 支持产品图片上传（最多10张）、关键词词库、产品描述、Rufus Q&A\n- 支持 Excel/TXT 文件上传解析\n- 集成 GEO、COSMO、Rufus 算法知识库\n- 后端新增图片分析和 Listing 生成 API\n- Dashboard 添加专属卡片入口\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"c:/Users/ASUS/Desktop/n8n-saas-curspr\" push origin main)",
+      "Bash(git -C \"c:/Users/ASUS/Desktop/n8n-saas-curspr\" add app/listing-expert-pro/types.ts app/listing-expert-pro/listing-expert-pro-client.tsx)",
+      "Bash(git -C \"c:/Users/ASUS/Desktop/n8n-saas-curspr\" commit -m \"$\\(cat <<''EOF''\nfix: 更新模型为 Gemini 3 Pro/Flash\n\n- 将 Gemini 2.5 Pro 改为 Gemini 3 Pro\n- 将 Gemini 2.5 Flash 改为 Gemini 3 Flash\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+    ]
+  }
+}
