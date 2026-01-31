@@ -264,6 +264,11 @@ export default function DashboardClient({ services, user }: any) {
                 window.location.href = "/app-listing";
                 return;
               }
+              // 关键词筛选提示词 跳转专属页面
+              if (service.id === "b3d3ca4a-f743-41c2-9797-9e3c23114a75") {
+                window.location.href = "/keyword-filter";
+                return;
+              }
               setSelectedService(service);
             }}
             className="group bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-500 cursor-pointer transition-all"
