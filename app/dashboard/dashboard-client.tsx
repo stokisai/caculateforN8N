@@ -236,6 +236,21 @@ export default function DashboardClient({ services, user }: any) {
           </div>
         </a>
 
+        {/* 关键词筛选提示词 - 专属卡片 */}
+        <a
+          href="/keyword-filter"
+          className="group bg-gradient-to-br from-violet-50 to-purple-50 rounded-xl p-6 border border-violet-200 shadow-sm hover:shadow-lg hover:border-violet-400 cursor-pointer transition-all"
+        >
+          <div className="h-40 bg-gradient-to-br from-violet-100 to-purple-100 rounded-lg mb-4 overflow-hidden relative flex items-center justify-center">
+            <div className="text-6xl">🛡️</div>
+          </div>
+          <h3 className="text-xl font-semibold text-slate-900 mb-2">关键词筛选提示词</h3>
+          <p className="text-slate-500 text-sm line-clamp-2">跨境电商关键词三重过滤分析：法律合规、事实核对、SEO相关性筛选</p>
+          <div className="mt-4 flex items-center text-violet-600 font-medium text-sm group-hover:translate-x-1 transition-transform">
+            立即使用 &rarr;
+          </div>
+        </a>
+
         {services.map((service: any) => (
           <div
             key={service.id}
