@@ -2661,3 +2661,199 @@ async def process_keyword_batch(request: KeywordBatchRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"关键词处理失败: {str(e)}")
 
+
+# ============================================================
+# Amazon Listing Expert Pro API
+# ============================================================
+
+from pydantic import BaseModel
+from typing import List, Optional
+import os
+from pypdf import PdfReader
+
+class ListingExpertProRequest(BaseModel):
+    images: List[str] = []
+    description: str
+    keywords: str
+    marketplace: str = "US"
+    rufusQA: str = ""
+    model: str = "gemini-2.5-pro-preview-05-06"
+    imageAnalysis: Optional[str] = None
+
+class ImageAnalysisRequest(BaseModel):
+    images: List[str]
+    model: str = "gemini-2.5-flash-preview-05-20"
+
+# 加载知识库内容
+def load_knowledge_base():
+    """加载知识库 PDF 文件内容"""
+    knowledge_dir = os.path.join(os.path.dirname(__file__), "knowledge")
+    knowledge_content = ""
+
+    pdf_files = [
+        "亚马逊SEO逻辑.pdf",
+        "GEO逻辑(2).pdf",
+        "亚马逊推荐系统cosmo(2).pdf"
+    ]
+
+    for pdf_file in pdf_files:
+        pdf_path = os.path.join(knowledge_dir, pdf_file)
+        if os.path.exists(pdf_path):
+            try:
+                reader = PdfReader(pdf_path)
+                text = ""
+                for page in reader.pages[:10]:  # 只读取前10页以控制长度
+                    text += page.extract_text() or ""
+                knowledge_content += f"\n\n=== {pdf_file} ===\n{text[:5000]}"  # 每个文件限制5000字符
+            except Exception as e:
+                print(f"⚠️ 无法读取 {pdf_file}: {e}")
+
+    return knowledge_content
+
+LISTING_SYSTEM_INSTRUCTION = """
+Role: 顶级亚马逊 Listing 专家 (10年+经验)
+Background: 擅长深度洞察核心卖点(USP)和用户痛点。具备 GEO、COSMO 算法和 Amazon SEO 的深厚知识。
+
+Knowledge Base Integration:
+1. COSMO 算法: 不仅匹配关键词，深度分析特定场景下的"常识性意图"(Reasoning Context)。文案需体现产品如何解决用户的潜在需求。
+2. Rufus & GEO (Generative Engine Optimization): 针对 Rufus 问答逻辑，将 Rufus 问题及答案中的核心信息自然织入文案。使用权威语气、加入统计数据、引用来源、添加名言等 GEO 策略。
+3. Amazon SEO: 确保核心关键词埋点符合 A9 权重逻辑。
+
+Constraints:
+- 标题: 简洁合规。首字母大写。使用阿拉伯数字。严禁促销语。结构: [核心关键词] + [属性词] + [规格/适用范围]。包含 1-2 个 Cosmo 场景词。
+- 五点描述: 功能+益处。5点总长<1000字符。结构: "【大写核心卖点】+ 详细解释"。
+  卖点1: 解决用户痛点 (Cosmo意图)。卖点2: 核心技术/材质 (SEO核心词)。卖点3: 使用场景与便利性 (Rufus常见问题)。卖点4: 质量保证/合规。卖点5: 情感连接/品牌价值。
+- 商品描述: Storytelling 风格，描述生活场景。自然埋入长尾词。针对 Rufus 优化段落。
+- 搜索关键字: <250 字符。去重标题词、去重单词、去品牌词。全小写，空格分隔，无标点，无虚词。
+
+Formatting Rule (CRITICAL):
+- 严禁在任何输出行的开头使用星号（*）或短横线（-）作为列表符号。
+- 对于五点描述（Bullet Points），直接输出文案，不要添加任何前缀符号。
+- 对于其他部分，请使用清晰的标题（如：【标题】、【五点描述】等）进行分隔，内容使用换行分隔。
+- 保持文案整洁，不要使用 Markdown 的列表语法。
+"""
+
+@app.post("/api/listing-expert-pro/analyze-images")
+async def analyze_images_endpoint(request: ImageAnalysisRequest):
+    """分析产品图片，提取视觉特征"""
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY 未配置")
+
+    if not request.images:
+        return {"analysis": "未上传图片。"}
+
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel(request.model)
+
+        prompt = """
+你是一个专业的产品分析师。请仔细观察提供的产品图片，提取以下信息：
+1. 产品的精确外观特征（颜色、材质细节、表面纹理）。
+2. 产品上可见的任何标识、按钮、接口或功能部件。
+3. 产品的设计风格（现代、工业、复古等）。
+4. 通过视觉观察推断出的核心用途。
+5. 产品在图片中展示的尺寸比例（如果有参照物）。
+
+请用详细的文本描述上述信息，这些信息将作为 Listing 撰写的核心素材。
+"""
+
+        parts = [prompt]
+
+        for img_base64 in request.images[:10]:  # 最多处理10张图片
+            if "," in img_base64:
+                base64_data = img_base64.split(",")[1]
+                mime_match = img_base64.split(",")[0]
+                mime_type = "image/png"
+                if "image/jpeg" in mime_match:
+                    mime_type = "image/jpeg"
+                elif "image/png" in mime_match:
+                    mime_type = "image/png"
+                elif "image/webp" in mime_match:
+                    mime_type = "image/webp"
+            else:
+                base64_data = img_base64
+                mime_type = "image/png"
+
+            parts.append({
+                "inline_data": {
+                    "data": base64_data,
+                    "mime_type": mime_type
+                }
+            })
+
+        response = model.generate_content(parts)
+        analysis_text = response.text if hasattr(response, 'text') else "未能从图片中解析出有效信息。"
+
+        return {"analysis": analysis_text}
+
+    except Exception as e:
+        print(f"❌ 图片分析失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"analysis": f"图片解析失败: {str(e)}，将仅基于文本描述生成。"}
+
+
+@app.post("/api/listing-expert-pro/generate")
+async def generate_listing_endpoint(request: ListingExpertProRequest):
+    """生成 Amazon Listing 文案"""
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY 未配置")
+
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel(request.model)
+
+        # 加载知识库
+        knowledge_base = load_knowledge_base()
+
+        prompt = f"""
+{LISTING_SYSTEM_INSTRUCTION}
+
+=== 知识库参考 ===
+{knowledge_base[:15000]}
+
+=== 输入数据 ===
+- 图片视觉分析结果: {request.imageAnalysis or '未提供图片分析'}
+- 用户提供的产品描述: {request.description}
+- 关键词库: {request.keywords}
+- 目标站点: {request.marketplace}
+- Rufus 问题及答案: {request.rufusQA}
+
+=== 任务 ===
+按照上述约束撰写完整的 Listing 文案，包括：
+1. 标题 (Title)
+2. 五点描述 (Bullet Points) - 注意：每行开头不得有星号或任何列表符
+3. 商品描述 (Description)
+4. 后台搜索词 (Search Terms)
+5. 每张附图的策划建议 (Image Planning)
+6. A+ 整体策划方案 (A+ Content Planning)
+
+=== 输出格式要求 ===
+1. 每一行开头严禁出现星号"*"。
+2. 五点描述请直接列出，例如：
+   【核心卖点】详细描述...
+   【核心卖点】详细描述...
+3. 不要使用 Markdown 列表格式（即不要用 * 或 - 开头）。
+"""
+
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                "temperature": 0.8,
+                "top_p": 0.95,
+            }
+        )
+
+        result_text = response.text if hasattr(response, 'text') else "生成失败，请重试。"
+
+        return {"content": result_text}
+
+    except Exception as e:
+        print(f"❌ Listing 生成失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Listing 生成失败: {str(e)}")
+
+

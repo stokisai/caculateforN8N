@@ -251,6 +251,21 @@ export default function DashboardClient({ services, user }: any) {
           </div>
         </a>
 
+        {/* Amazon Listing Expert Pro - 专属卡片 */}
+        <a
+          href="/listing-expert-pro"
+          className="group bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-6 border border-orange-200 shadow-sm hover:shadow-lg hover:border-orange-400 cursor-pointer transition-all"
+        >
+          <div className="h-40 bg-gradient-to-br from-orange-100 to-amber-100 rounded-lg mb-4 overflow-hidden relative flex items-center justify-center">
+            <div className="text-6xl">🧠</div>
+          </div>
+          <h3 className="text-xl font-semibold text-slate-900 mb-2">Amazon Listing Expert Pro</h3>
+          <p className="text-slate-500 text-sm line-clamp-2">基于 GEO、COSMO、Rufus 算法的顶级 Listing 文案生成专家，支持图片解析与知识库</p>
+          <div className="mt-4 flex items-center text-orange-600 font-medium text-sm group-hover:translate-x-1 transition-transform">
+            立即使用 &rarr;
+          </div>
+        </a>
+
         {services.map((service: any) => (
           <div
             key={service.id}
