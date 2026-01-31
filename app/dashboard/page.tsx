@@ -4,77 +4,22 @@ import DashboardClient from "./dashboard-client";
 import type { Service } from "@/types/supabase";
 
 export default async function DashboardPage() {
-  // 👇 必须 await
   const supabase = await createSupabaseServerClient();
 
-  // 获取 Session
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // 未登录直接跳转
   if (!session) {
     redirect("/login");
   }
 
-  // 查询所有服务
   const { data: services } = await supabase
     .from("services")
     .select("*")
     .order("created_at", { ascending: false });
 
-  // 类型断言：确保 services 是正确的类型
   const typedServices: Service[] = (services ?? []) as Service[];
 
-  // 确保“亚马逊顶级 Listing 专家”服务存在（若 Supabase 缺这条记录则插入一个前端兜底）
-  const listingServiceId = "b9f2b13e-2f4b-4a62-8b0e-d2f74d824230";
-  const appListingServiceId = "d2e62616-44ff-4623-90e2-33ce28d0b9ba";
-  const hasListingService = typedServices.some((s) => s.id === listingServiceId);
-  const hasAppListingService = typedServices.some((s) => s.id === appListingServiceId);
-  const mergedServices = [
-    ...typedServices,
-    ...(!hasListingService
-      ? [
-          {
-            id: listingServiceId,
-            title: "????????Listing ??? (GEO & COSMO ?????",
-            description:
-              "AI ????????Amazon Listing ????????????????????????????????",
-            image_url: "/images/listing-expert.svg",
-            webhook_url: "/api/process",
-            input_type: "text",
-            created_at: new Date().toISOString(),
-          } as Service,
-        ]
-      : []),
-    ...(!hasAppListingService
-      ? [
-          {
-            id: appListingServiceId,
-            title: "APP????????listing????",
-            description: "???????????????????????????APP?????",
-            image_url: "/images/app-listing.svg",
-            webhook_url: "/app-listing",
-            input_type: "text",
-            created_at: new Date().toISOString(),
-          } as Service,
-        ]
-      : []),
-  ];
-
-  // 调试日志
-  console.log(
-    "📦 从数据库获取的服务:",
-    mergedServices.map((s) => ({
-      title: s.title,
-      webhook_url: s.webhook_url,
-    }))
-  );
-
-  return (
-    <DashboardClient
-      services={mergedServices}
-      user={session.user}
-    />
-  );
+  return <DashboardClient services={typedServices} user={session.user} />;
 }
