@@ -221,45 +221,89 @@ export default function DashboardClient({ services, user }: any) {
 
       {/* 服务卡片网格 */}
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {services.map((service: any) => (
-          <div
-            key={service.id}
-            onClick={() => {
-              const webhookUrl = service?.webhook_url || "";
-              if (webhookUrl.startsWith("/") && !webhookUrl.startsWith("/api/")) {
-                window.location.href = webhookUrl;
-                return;
-              }
-              setSelectedService(service);
-            }}
-            className="group bg-white rounded-xl p-6 border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-500 cursor-pointer transition-all"
-          >
-            <div className="h-40 bg-slate-100 rounded-lg mb-4 overflow-hidden relative">
-              {service.image_url ? (
-                <img
-                  src={service.image_url}
-                  alt={service.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.currentTarget as HTMLImageElement;
-                    if (!target.src.includes("/images/service-fallback.svg")) {
-                      target.src = "/images/service-fallback.svg";
-                    }
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-slate-400">
-                  <img src="/images/service-fallback.svg" alt="Service" className="w-20 h-20 opacity-70" />
-                </div>
-              )}
+        {services.map((service: any) => {
+          // 定义不同服务的样式配置
+          let style = {
+            container: "bg-white border-slate-200 hover:border-indigo-500 shadow-sm",
+            iconBg: "bg-slate-100",
+            icon: null as React.ReactNode,
+            btnText: "text-indigo-600",
+            image: true, // 是否显示原来的图片
+          };
+
+          // 关键词筛选提示词 - 紫色主题
+          if (service.title.includes("关键词筛选提示词")) {
+            style = {
+              container: "bg-gradient-to-br from-violet-50 to-purple-50 border-violet-200 hover:border-violet-400 hover:shadow-lg",
+              iconBg: "bg-gradient-to-br from-violet-100 to-purple-100",
+              icon: <div className="text-6xl">🛡️</div>,
+              btnText: "text-violet-600",
+              image: false,
+            };
+          }
+          // Amazon Listing Expert Pro - 橙色主题
+          else if (service.title.includes("Amazon Listing")) {
+            style = {
+              container: "bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200 hover:border-orange-400 hover:shadow-lg",
+              iconBg: "bg-gradient-to-br from-orange-100 to-amber-100",
+              icon: <div className="text-6xl">🧠</div>,
+              btnText: "text-orange-600",
+              image: false,
+            };
+          }
+          // 关键词词库搭建工具 - 绿色主题 (匹配图一)
+          else if (service.title.includes("关键词词库搭建工具")) {
+            style = {
+              container: "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 hover:border-emerald-400 hover:shadow-lg",
+              iconBg: "bg-gradient-to-br from-emerald-100 to-teal-100",
+              icon: <div className="text-6xl">📊</div>,
+              btnText: "text-emerald-600",
+              image: false,
+            };
+          }
+
+          return (
+            <div
+              key={service.id}
+              onClick={() => {
+                const webhookUrl = service?.webhook_url || "";
+                if (webhookUrl.startsWith("/") && !webhookUrl.startsWith("/api/")) {
+                  window.location.href = webhookUrl;
+                  return;
+                }
+                setSelectedService(service);
+              }}
+              className={`group rounded-xl p-6 border cursor-pointer transition-all ${style.container}`}
+            >
+              <div className={`h-40 rounded-lg mb-4 overflow-hidden relative flex items-center justify-center ${style.iconBg}`}>
+                {style.image && service.image_url ? (
+                  <img
+                    src={service.image_url}
+                    alt={service.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.currentTarget as HTMLImageElement;
+                      if (!target.src.includes("/images/service-fallback.svg")) {
+                        target.src = "/images/service-fallback.svg";
+                      }
+                    }}
+                  />
+                ) : (
+                  style.icon || (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400">
+                      <img src="/images/service-fallback.svg" alt="Service" className="w-20 h-20 opacity-70" />
+                    </div>
+                  )
+                )}
+              </div>
+              <h3 className="text-xl font-semibold text-slate-900 mb-2">{service.title}</h3>
+              <p className="text-slate-500 text-sm line-clamp-2">{service.description}</p>
+              <div className={`mt-4 flex items-center font-medium text-sm group-hover:translate-x-1 transition-transform ${style.btnText}`}>
+                立即使用 &rarr;
+              </div>
             </div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">{service.title}</h3>
-            <p className="text-slate-500 text-sm line-clamp-2">{service.description}</p>
-            <div className="mt-4 flex items-center text-indigo-600 font-medium text-sm group-hover:translate-x-1 transition-transform">
-              立即使用 &rarr;
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* 弹窗 Modal */}
