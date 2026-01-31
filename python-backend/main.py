@@ -2588,13 +2588,8 @@ async def process_keyword_batch(request: KeywordBatchRequest):
 3. category: 分析类别（如：核心属性关键词-高相关、法律合规风险、属性矛盾、大词泛词-相关、泛属性关键词-相关等）
 4. detail: 详细的判断理由或功能描述
 
-请确保返回的是可解析的JSON数组格式。
+请确保返回的是可解析的JSON数组格式。只返回JSON数组，不要有任何其他文字。
 """
-        
-        # 设置系统指令和生成配置
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json"
-        )
         
         full_prompt = f"{request.systemInstruction}\n\n{prompt}"
         
@@ -2602,21 +2597,26 @@ async def process_keyword_batch(request: KeywordBatchRequest):
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                response = model.generate_content(
-                    full_prompt,
-                    generation_config=generation_config
-                )
+                response = model.generate_content(full_prompt)
                 
                 result_text = response.text if hasattr(response, 'text') else ""
                 
                 if not result_text.strip():
                     raise ValueError("Gemini 返回空结果")
                 
+                # 尝试提取 JSON 部分（处理 markdown 代码块）
+                json_text = result_text.strip()
+                if "```json" in json_text:
+                    json_text = json_text.split("```json")[1].split("```")[0].strip()
+                elif "```" in json_text:
+                    json_text = json_text.split("```")[1].split("```")[0].strip()
+                
                 # 解析 JSON 结果
-                parsed_results = json.loads(result_text)
+                parsed_results = json.loads(json_text)
                 
                 if not isinstance(parsed_results, list):
                     raise ValueError("返回格式不是数组")
+
                 
                 # 确保所有关键词都有结果
                 result_map = {r.get('keyword', '').lower().strip(): r for r in parsed_results if isinstance(r, dict)}
