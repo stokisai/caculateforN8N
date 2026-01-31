@@ -2517,7 +2517,7 @@ async def analyze_images_for_keyword_filter(request: ImageAnalysisRequest):
         import google.generativeai as genai
         
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel(normalize_gemini_model("gemini-2.0-flash"))
+        model = genai.GenerativeModel("gemini-1.5-flash")
         
         # 构建图片内容（最多处理5张图片）
         image_parts = []
@@ -2571,7 +2571,7 @@ async def process_keyword_batch(request: KeywordBatchRequest):
         import google.generativeai as genai
         
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel(normalize_gemini_model("gemini-2.0-flash"))
+        model = genai.GenerativeModel("gemini-1.5-flash")
         
         # 构建提示词
         prompt = f"""
