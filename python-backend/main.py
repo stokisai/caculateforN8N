@@ -2563,3 +2563,175 @@ async def generate_listing_endpoint(request: ListingExpertProRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Listing 生成失败: {str(e)}")
+
+
+# ============================================================
+# Keyword Filter API (跨境SEO与合规工作台)
+# ============================================================
+
+class KeywordBatchRequest(BaseModel):
+    productInfo: dict
+    imageDescription: str
+    keywords: List[str]
+    systemInstruction: str
+
+@app.post("/api/keyword-filter/analyze-images")
+async def analyze_images_for_keyword_filter(request: ImageAnalysisRequest):
+    """
+    第一阶段：解析产品图片，提取视觉特征
+
+    使用 Gemini API 分析图片，返回产品的颜色、形状、材质、卖点等结构化描述
+    """
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY 未配置")
+
+    if not request.images or len(request.images) == 0:
+        return {"description": "无图片信息"}
+
+    try:
+        import google.generativeai as genai
+
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-3-flash-preview")
+
+        # 构建图片内容（最多处理5张图片）
+        image_parts = []
+        for img_data in request.images[:5]:
+            # 从 Base64 data URL 中提取实际的 base64 数据
+            if "," in img_data:
+                base64_data = img_data.split(",")[1]
+            else:
+                base64_data = img_data
+
+            image_parts.append({
+                "mime_type": "image/jpeg",
+                "data": base64_data
+            })
+
+        prompt = """请作为专家分析这些产品图片，详细描述产品的视觉特征：颜色、形状、材质、核心卖点、适用场景、以及初步判断的类目属性。请提供尽可能专业且简洁的描述，这将被用于后续的关键词SEO匹配分析。"""
+
+        # 构建请求内容
+        contents = [{"mime_type": p["mime_type"], "data": base64.b64decode(p["data"])} for p in image_parts]
+        contents.append(prompt)
+
+        response = model.generate_content(contents)
+        description = response.text if hasattr(response, 'text') else "未能提取有效的图片特征描述。"
+
+        return {"description": description}
+
+    except Exception as e:
+        print(f"❌ 图片分析失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"图片分析失败: {str(e)}")
+
+
+@app.post("/api/keyword-filter/process-batch")
+async def process_keyword_batch(request: KeywordBatchRequest):
+    """
+    第二阶段：批量处理关键词
+
+    基于产品信息和图片分析结果，对关键词进行三重过滤：
+    1. 法律与合规过滤
+    2. 事实与属性核对
+    3. SEO强相关筛选
+    """
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY 未配置")
+
+    if not request.keywords or len(request.keywords) == 0:
+        return {"results": []}
+
+    try:
+        import google.generativeai as genai
+
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-3-flash-preview")
+
+        # 构建提示词
+        prompt = f"""
+目标国家: {request.productInfo.get('targetCountry', 'USA')}
+产品文字描述: {request.productInfo.get('description', '')}
+产品视觉特征（基于图片分析）: {request.imageDescription}
+
+任务：请务必对以下【全部】{len(request.keywords)}个关键词逐一分析，不得遗漏。
+关键词列表: {json.dumps(request.keywords, ensure_ascii=False)}
+
+请严格按照JSON数组格式返回结果。每个结果必须包含：
+1. keyword: 原始关键词
+2. status: "passed" (通过) 或 "removed" (剔除)
+3. category: 分析类别（如：核心属性关键词-高相关、法律合规风险、属性矛盾、大词泛词-相关、泛属性关键词-相关等）
+4. detail: 详细的判断理由或功能描述
+
+请确保返回的是可解析的JSON数组格式。只返回JSON数组，不要有任何其他文字。
+"""
+
+        full_prompt = f"{request.systemInstruction}\n\n{prompt}"
+
+        # 使用指数退避重试
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = model.generate_content(full_prompt)
+
+                result_text = response.text if hasattr(response, 'text') else ""
+
+                if not result_text.strip():
+                    raise ValueError("Gemini 返回空结果")
+
+                # 尝试提取 JSON 部分（处理 markdown 代码块）
+                json_text = result_text.strip()
+                if "```json" in json_text:
+                    json_text = json_text.split("```json")[1].split("```")[0].strip()
+                elif "```" in json_text:
+                    json_text = json_text.split("```")[1].split("```")[0].strip()
+
+                # 解析 JSON 结果
+                parsed_results = json.loads(json_text)
+
+                if not isinstance(parsed_results, list):
+                    raise ValueError("返回格式不是数组")
+
+
+                # 确保所有关键词都有结果
+                result_map = {r.get('keyword', '').lower().strip(): r for r in parsed_results if isinstance(r, dict)}
+
+                complete_results = []
+                for keyword in request.keywords:
+                    found = result_map.get(keyword.lower().strip())
+                    if found:
+                        complete_results.append(found)
+                    else:
+                        complete_results.append({
+                            "keyword": keyword,
+                            "status": "passed",
+                            "category": "AI未处理",
+                            "detail": "该词在批次处理中被漏分析，建议手动复核"
+                        })
+
+                return {"results": complete_results}
+
+            except json.JSONDecodeError as e:
+                print(f"⚠️ JSON 解析失败 (尝试 {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)  # 指数退避
+                    continue
+                else:
+                    # 返回默认结果
+                    return {"results": [
+                        {"keyword": kw, "status": "passed", "category": "解析失败", "detail": "API返回格式异常"}
+                        for kw in request.keywords
+                    ]}
+            except Exception as e:
+                print(f"⚠️ API 调用失败 (尝试 {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)  # 指数退避
+                    continue
+                else:
+                    raise
+
+    except Exception as e:
+        print(f"❌ 关键词批次处理失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"关键词处理失败: {str(e)}")
